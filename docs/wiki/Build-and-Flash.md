@@ -15,11 +15,19 @@ Initialize the configured IDF profile:
 idf.py build
 ```
 
-## 3) Flash + Monitor
+## 3) Size Report
+```powershell
+idf.py size
+```
+
+Use this after build to verify app image growth against OTA slot capacity.
+
+## 4) Flash + Monitor
 ```powershell
 idf.py -p <PORT> flash monitor
 ```
 
-## 4) Common Build-Time Config
+## 5) Common Build-Time Config
 - `sdkconfig.defaults` sets default target and TinyUSB options.
 - `main/Kconfig.projbuild` exposes project-level options for Wi-Fi/SNTP/TZ.
+- `partitions_8mb_ota.csv` defines 8MB flash layout with dual OTA + `cfgstore`.

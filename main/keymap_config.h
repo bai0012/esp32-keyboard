@@ -148,6 +148,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
  * OLED screen-protection settings.
  * - Brightness values are in percent (0..100).
  * - Inactivity timeouts are in seconds.
+ * - I2C speed is in Hz.
  */
 #define MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT 70
 #define MACRO_OLED_DIM_BRIGHTNESS_PERCENT 15
@@ -155,6 +156,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_OLED_OFF_TIMEOUT_SEC 180
 #define MACRO_OLED_SHIFT_RANGE_PX 2
 #define MACRO_OLED_SHIFT_INTERVAL_SEC 60
+#define MACRO_OLED_I2C_SCL_HZ 800000
 
 // Touch active threshold = baseline * percent / 100
 #define MACRO_TOUCH_TRIGGER_PERCENT 85

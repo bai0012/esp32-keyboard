@@ -24,6 +24,12 @@ Hardware reference is documented in `hardware_info.md`.
   - inactivity auto-dim and auto-off
   - hourly full-screen inversion toggle (starts after SNTP time is valid)
   - configurable default brightness (default 70%)
+- System tuning profile:
+  - 8MB flash target
+  - dual OTA app slots
+  - 1MB `cfgstore` data partition reserved for future configuration storage
+  - 240MHz default CPU frequency
+  - performance-oriented compiler optimization
 
 ## Repository Layout
 - `main/main.c`: app orchestration, input scan loop, task startup
@@ -32,6 +38,7 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/oled_clock.c`: OLED drawing and render pipeline
 - `main/keymap_config.h`: key/encoder/touch mappings and tuning constants
 - `main/Kconfig.projbuild`: Wi-Fi, NTP, timezone config entries
+- `partitions_8mb_ota.csv`: custom 8MB partition layout (2 OTA + cfgstore)
 
 ## Prerequisites
 - ESP-IDF `v5.5.x`
@@ -48,6 +55,12 @@ Project-specific initialization command:
 idf.py build
 ```
 
+Check firmware size:
+
+```powershell
+idf.py size
+```
+
 ## Flash
 ```powershell
 idf.py -p <PORT> flash monitor
@@ -61,6 +74,7 @@ Edit `main/keymap_config.h`:
 - `g_touch_layer_config`
 - Touch tuning constants (`MACRO_TOUCH_*`)
 - OLED protection constants (`MACRO_OLED_*`)
+  - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
 
 ### 2) Wi-Fi + SNTP + timezone
 Set via `idf.py menuconfig` under `MacroPad Configuration`:

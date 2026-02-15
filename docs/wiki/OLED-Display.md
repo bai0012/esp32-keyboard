@@ -54,6 +54,11 @@ Defined in `main/keymap_config.h`:
 - `MACRO_OLED_OFF_TIMEOUT_SEC`
 - `MACRO_OLED_SHIFT_RANGE_PX`
 - `MACRO_OLED_SHIFT_INTERVAL_SEC`
+- `MACRO_OLED_I2C_SCL_HZ`
+
+I2C speed notes:
+- Default is configured above standard 400kHz to improve perceived refresh responsiveness.
+- Valid runtime clamp range in code: `100kHz .. 1MHz`.
 
 ## 7) Validation Checklist
 1. Boot without Wi-Fi: confirm no unexpected inversion when sync is unavailable.

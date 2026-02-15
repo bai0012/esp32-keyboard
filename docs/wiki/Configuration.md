@@ -53,6 +53,19 @@ Defined in `main/keymap_config.h`:
 - `MACRO_OLED_OFF_TIMEOUT_SEC`
 - `MACRO_OLED_SHIFT_RANGE_PX`
 - `MACRO_OLED_SHIFT_INTERVAL_SEC`
+- `MACRO_OLED_I2C_SCL_HZ`
 
 Detailed behavior and validation checklist:
 - [OLED Display](OLED-Display)
+
+## 7) System Performance + Flash Layout
+Primary settings live in `sdkconfig` / `sdkconfig.defaults`:
+- Flash size target: `8MB`
+- CPU frequency target: `240MHz`
+- Compiler optimization: performance-oriented release profile
+- Partition table: `partitions_8mb_ota.csv`
+
+Partition goals:
+- Two OTA slots: `ota_0`, `ota_1`
+- Reserved data partition for future config persistence:
+  - `cfgstore` (`1MB`, currently unused by firmware logic)

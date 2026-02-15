@@ -7,6 +7,7 @@
 
 #include "esp_check.h"
 
+#include "keymap_config.h"
 #include "oled_clock.h"
 
 #define TAG "MACROPAD"
@@ -199,6 +200,13 @@ static void oled_draw_clock(const struct tm *timeinfo, int8_t shift_x, int8_t sh
 
 esp_err_t oled_clock_init(void)
 {
+    uint32_t oled_i2c_hz = (uint32_t)MACRO_OLED_I2C_SCL_HZ;
+    if (oled_i2c_hz < 100000U) {
+        oled_i2c_hz = 100000U;
+    } else if (oled_i2c_hz > 1000000U) {
+        oled_i2c_hz = 1000000U;
+    }
+
     const i2c_master_bus_config_t bus_cfg = {
         .i2c_port = OLED_I2C_PORT,
         .sda_io_num = OLED_SDA_GPIO,
@@ -212,7 +220,7 @@ esp_err_t oled_clock_init(void)
     const i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = OLED_I2C_ADDR,
-        .scl_speed_hz = 400000,
+        .scl_speed_hz = oled_i2c_hz,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(s_i2c_bus, &dev_cfg, &s_oled_dev));
 
