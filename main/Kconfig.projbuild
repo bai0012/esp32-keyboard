@@ -1,0 +1,27 @@
+menu "MacroPad Configuration"
+
+config MACROPAD_WIFI_SSID
+    string "Wi-Fi SSID"
+    default ""
+    help
+        Wi-Fi SSID for SNTP time synchronization. Leave empty to disable Wi-Fi.
+
+config MACROPAD_WIFI_PASSWORD
+    string "Wi-Fi Password"
+    default ""
+    help
+        Wi-Fi password for SNTP time synchronization.
+
+config MACROPAD_NTP_SERVER
+    string "NTP Server"
+    default "pool.ntp.org"
+    help
+        SNTP server hostname used to synchronize system time.
+
+config MACROPAD_TZ
+    string "Timezone (TZ env format)"
+    default "UTC0"
+    help
+        Timezone string in POSIX TZ format, e.g. CST-8, EST5EDT,M3.2.0/2,M11.1.0/2.
+
+endmenu
