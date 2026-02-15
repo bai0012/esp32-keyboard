@@ -13,7 +13,7 @@
 - Input orchestration and task lifecycle: `main/main.c`
 - HID protocol/report behavior: `main/macropad_hid.*`
 - Touch gesture/hold logic: `main/touch_slider.*`
-- OLED rendering logic: `main/oled_clock.*`
+- OLED rendering logic: `main/oled.*`
 
 ## 3) Validation Checklist
 - [ ] `idf.py build` passes

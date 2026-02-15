@@ -22,10 +22,11 @@
   - Touch baseline and idle-noise compensation
   - Swipe direction detection
   - Hold-repeat trigger scheduler
-- `main/oled_clock.c`
+- `main/oled.c`
   - I2C OLED init and command path
   - Framebuffer primitives
-  - 7-segment style clock render
+  - UTF-8 text draw path with pluggable font callback
+  - 7-segment style clock render scene (`oled_render_clock`)
 - `main/buzzer.c`
   - Passive buzzer (LEDC PWM) initialization
   - Non-blocking tone queue
@@ -46,4 +47,4 @@ OLED subsystem deep-dive:
   - `buzzer.c`
   - `macropad_hid.c`
   - `touch_slider.c`
-  - `oled_clock.c`
+  - `oled.c`

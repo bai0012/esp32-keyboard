@@ -5,7 +5,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - EC11 rotary encoder with push button
 - 2-channel touch slider
 - 15x SK6812 RGB LEDs
-- 128x64 I2C OLED clock
+- 128x64 I2C OLED display
 - Passive buzzer feedback (LEDC PWM)
 - USB HID (keyboard + consumer control)
 - Optional Wi-Fi SNTP time sync
@@ -20,7 +20,8 @@ Hardware reference is documented in `hardware_info.md`.
 - Optional touch hold-repeat (used for volume on layer 2 by default)
 - RGB layer/status feedback
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
-- OLED digital clock with SNTP sync indicator
+- OLED subsystem with clock scene, framebuffer primitives, and UTF-8 text entry points
+- Pluggable glyph-font interface for future multilingual rendering (including Chinese/CJK glyph packs)
 - Passive buzzer feedback:
   - startup melody via RTTTL
   - key-press click
@@ -44,7 +45,7 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/main.c`: app orchestration, input scan loop, task startup
 - `main/macropad_hid.c`: TinyUSB descriptors and HID report sending
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
-- `main/oled_clock.c`: OLED drawing and render pipeline
+- `main/oled.c`: OLED core driver, framebuffer primitives, UTF-8 text path, and clock scene renderer
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
 - `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
@@ -127,10 +128,11 @@ Leaving SSID empty disables Wi-Fi/SNTP.
 
 ## OLED Display Details
 ### 1) Display content
-- Clock format: `HH:MM:SS`
+- Clock format (current scene): `HH:MM:SS`
 - Sync indicator:
   - synced: top-right marker
   - unsynced: bottom marker
+- Rendering module is generalized for future text/bitmap/animation scenes (`main/oled.c`).
 
 ### 2) Burn-in protection
 - Universal pixel shift:

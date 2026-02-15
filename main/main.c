@@ -28,7 +28,7 @@
 
 #include "buzzer.h"
 #include "macropad_hid.h"
-#include "oled_clock.h"
+#include "oled.h"
 #include "touch_slider.h"
 
 #define TAG "MACROPAD"
@@ -579,7 +579,7 @@ static void display_task(void *arg)
         const bool should_dim = !should_off && (dim_timeout_ticks > 0) && (idle_ticks >= dim_timeout_ticks);
 
         if (should_off != !display_enabled) {
-            if (oled_clock_set_display_enabled(!should_off) == ESP_OK) {
+            if (oled_set_display_enabled(!should_off) == ESP_OK) {
                 display_enabled = !should_off;
             }
         }
@@ -588,7 +588,7 @@ static void display_task(void *arg)
             const bool want_dim = should_dim;
             if (want_dim != display_dimmed) {
                 const uint8_t target = want_dim ? dim_brightness : normal_brightness;
-                if (oled_clock_set_brightness_percent(target) == ESP_OK) {
+                if (oled_set_brightness_percent(target) == ESP_OK) {
                     display_dimmed = want_dim;
                 }
             }
@@ -607,7 +607,7 @@ static void display_task(void *arg)
                 last_invert_hour = hour_key;
             } else if (hour_key != last_invert_hour) {
                 display_inverted = !display_inverted;
-                esp_err_t inv_err = oled_clock_set_inverted(display_inverted);
+                esp_err_t inv_err = oled_set_inverted(display_inverted);
                 if (inv_err != ESP_OK) {
                     ESP_LOGE(TAG, "OLED invert change failed: %s", esp_err_to_name(inv_err));
                 }
@@ -616,7 +616,7 @@ static void display_task(void *arg)
         } else {
             /* Keep normal polarity before sync so first SNTP correction does not invert unexpectedly. */
             if (display_inverted) {
-                if (oled_clock_set_inverted(false) == ESP_OK) {
+                if (oled_set_inverted(false) == ESP_OK) {
                     display_inverted = false;
                 }
             }
@@ -633,7 +633,7 @@ static void display_task(void *arg)
         }
 
         if (display_enabled) {
-            esp_err_t err = oled_clock_render(&timeinfo, shift_x, shift_y);
+            esp_err_t err = oled_render_clock(&timeinfo, shift_x, shift_y);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "OLED render failed: %s", esp_err_to_name(err));
             }
@@ -665,8 +665,8 @@ void app_main(void)
     ESP_ERROR_CHECK(init_led_strip());
     ESP_ERROR_CHECK(buzzer_init());
     buzzer_play_startup();
-    ESP_ERROR_CHECK(oled_clock_init());
-    ESP_ERROR_CHECK(oled_clock_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
+    ESP_ERROR_CHECK(oled_init());
+    ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     ESP_ERROR_CHECK(macropad_usb_init());
     ESP_ERROR_CHECK(init_wifi_and_sntp());
 

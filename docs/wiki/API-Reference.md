@@ -23,22 +23,47 @@
 - Performs one touch processing iteration.
 - Calls `send_consumer` when a gesture or hold-repeat action fires.
 
-## 3) OLED Module (`main/oled_clock.h`)
+## 3) OLED Module (`main/oled.h`)
 
-### `esp_err_t oled_clock_init(void);`
+### Core control
+
+### `esp_err_t oled_init(void);`
 - Initializes I2C bus/device and OLED controller.
 
-### `esp_err_t oled_clock_render(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);`
-- Renders the current time using caller-provided pixel-shift offsets.
-
-### `esp_err_t oled_clock_set_brightness_percent(uint8_t percent);`
+### `esp_err_t oled_set_brightness_percent(uint8_t percent);`
 - Sets OLED contrast as a brightness percentage (`0..100`).
 
-### `esp_err_t oled_clock_set_display_enabled(bool enabled);`
+### `esp_err_t oled_set_display_enabled(bool enabled);`
 - Powers OLED panel on/off (`on` = wake, `off` = screen off).
 
-### `esp_err_t oled_clock_set_inverted(bool inverted);`
+### `esp_err_t oled_set_inverted(bool inverted);`
 - Toggles OLED display inversion mode (`normal`/`inverse`).
+
+### Framebuffer primitives
+
+### `void oled_clear_buffer(void);`
+- Clears internal framebuffer.
+
+### `void oled_set_pixel(int x, int y, bool on);`
+- Sets a single pixel in framebuffer.
+
+### `void oled_fill_rect(int x, int y, int w, int h, bool on);`
+- Fills a rectangle in framebuffer.
+
+### `void oled_draw_bitmap_mono(int x, int y, int w, int h, const uint8_t *bitmap, bool bit_packed);`
+- Draws monochrome bitmap data into framebuffer.
+
+### `esp_err_t oled_draw_text_utf8(int x, int y, const char *utf8, const oled_font_t *font);`
+- Draws UTF-8 text using caller-supplied glyph callback (`oled_font_t`).
+- Enables future multilingual rendering; Chinese/CJK support is provided by adding matching glyph tables/callbacks.
+
+### `esp_err_t oled_present(void);`
+- Flushes framebuffer to panel.
+
+### Scene helper
+
+### `esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);`
+- Current default scene renderer used by `display_task` (`HH:MM:SS`).
 
 Behavior/tuning reference:
 - [OLED Display](OLED-Display)

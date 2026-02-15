@@ -27,7 +27,7 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP
 - `main/macropad_hid.c`: TinyUSB/HID descriptors and report sending
 - `main/touch_slider.c`: touch gesture state machine + hold-repeat
-- `main/oled_clock.c`: OLED framebuffer + clock rendering
+- `main/oled.c`: OLED driver + framebuffer + text/bitmap primitives + clock scene renderer
 - `main/buzzer.c`: non-blocking passive buzzer tone playback
 - `config/keymap_config.yaml`: source-of-truth layers, mappings, and tuning constants
 - `main/keymap_config.h`: generated config header used by firmware build

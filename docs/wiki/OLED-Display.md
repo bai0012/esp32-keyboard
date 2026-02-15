@@ -4,22 +4,23 @@
 This page documents the OLED subsystem behavior, protection policies, and tuning knobs.
 
 Primary source files:
-- `main/oled_clock.c`
-- `main/oled_clock.h`
+- `main/oled.c`
+- `main/oled.h`
 - `main/main.c` (`display_task`)
 - `config/keymap_config.yaml` (generated into `main/keymap_config.h`)
 
 ## 2) What Is Rendered
-- Main content: `HH:MM:SS` digital clock.
+- Current scene: `HH:MM:SS` digital clock.
 - Sync marker:
   - SNTP synced: marker at top-right.
   - Not synced: marker near bottom.
-- All content is rendered into an internal framebuffer, then pushed over I2C.
+- All scene content is rendered into an internal framebuffer, then pushed over I2C.
+- The module also exposes generic primitives for future text/bitmap/animation scenes.
 
 ## 3) Render Pipeline
 1. `display_task` gets current local time.
 2. OLED protection state is updated (dim/off/inversion/shift).
-3. `oled_clock_render(timeinfo, shift_x, shift_y)` draws the frame.
+3. `oled_render_clock(timeinfo, shift_x, shift_y)` draws the current clock scene.
 4. Framebuffer is flushed to the panel.
 
 ## 4) Burn-In Protection Policies
@@ -42,11 +43,20 @@ Primary source files:
 - Default brightness: `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT` (default `70`).
 - Dimmed brightness: `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`.
 - Runtime APIs:
-  - `oled_clock_set_brightness_percent()`
-  - `oled_clock_set_display_enabled()`
-  - `oled_clock_set_inverted()`
+  - `oled_set_brightness_percent()`
+  - `oled_set_display_enabled()`
+  - `oled_set_inverted()`
 
-## 6) Configuration Knobs
+## 6) Text and CJK Compatibility
+- UTF-8 text entry point: `oled_draw_text_utf8()`.
+- Font lookup is callback-based (`oled_font_t` + `get_glyph`), so glyph storage is decoupled from renderer.
+- Chinese/CJK support path:
+  1. add a glyph provider for required codepoint ranges,
+  2. map UTF-8 codepoints to bitmaps/advance metrics,
+  3. call `oled_draw_text_utf8()` with that font.
+- Missing glyphs currently render as fallback boxes to keep layout stable during incremental font rollout.
+
+## 7) Configuration Knobs
 Defined in `config/keymap_config.yaml` under `oled.*` (generated macros in `main/keymap_config.h`):
 - `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`
 - `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`
@@ -60,15 +70,16 @@ I2C speed notes:
 - Default is configured above standard 400kHz to improve perceived refresh responsiveness.
 - Valid runtime clamp range in code: `100kHz .. 1MHz`.
 
-## 7) Validation Checklist
+## 8) Validation Checklist
 1. Boot without Wi-Fi: confirm no unexpected inversion when sync is unavailable.
 2. Enable Wi-Fi SNTP: confirm inversion cadence starts only after valid time.
 3. Stay idle past dim timeout: verify brightness drops.
 4. Stay idle past off timeout: verify panel turns off.
 5. Press any input: verify immediate wake and normal brightness restore.
 6. Observe minute boundaries: verify subtle randomized pixel shift.
+7. Render UTF-8 strings with test glyph callbacks and verify fallback behavior for missing glyphs.
 
-## 8) Common Tuning Notes
+## 9) Common Tuning Notes
 - If dimming is too aggressive: increase `MACRO_OLED_DIM_TIMEOUT_SEC`.
 - If display feels too static: increase `MACRO_OLED_SHIFT_INTERVAL_SEC` frequency (lower value) or range.
 - If movement is distracting: reduce `MACRO_OLED_SHIFT_RANGE_PX`.
