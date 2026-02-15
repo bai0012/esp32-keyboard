@@ -14,11 +14,12 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 2. [Build and Flash](Build-and-Flash)
 3. [Configuration](Configuration)
 4. [Runtime Behavior](Runtime-Behavior)
-5. [Touch Slider Algorithm](Touch-Slider-Algorithm)
-6. [API Reference](API-Reference)
-7. [Development Workflow](Development-Workflow)
-8. [Troubleshooting](Troubleshooting)
-9. [Documentation Policy](Documentation-Policy)
+5. [OLED Display](OLED-Display)
+6. [Touch Slider Algorithm](Touch-Slider-Algorithm)
+7. [API Reference](API-Reference)
+8. [Development Workflow](Development-Workflow)
+9. [Troubleshooting](Troubleshooting)
+10. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP

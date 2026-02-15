@@ -32,3 +32,5 @@
   - tune `MACRO_OLED_DIM_TIMEOUT_SEC` and `MACRO_OLED_OFF_TIMEOUT_SEC`.
 - If movement appears too large/small:
   - tune `MACRO_OLED_SHIFT_RANGE_PX`.
+- Full OLED behavior reference:
+  - [OLED Display](OLED-Display)

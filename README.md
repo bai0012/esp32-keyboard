@@ -85,9 +85,34 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
 
+## OLED Display Details
+### 1) Display content
+- Clock format: `HH:MM:SS`
+- Sync indicator:
+  - synced: top-right marker
+  - unsynced: bottom marker
+
+### 2) Burn-in protection
+- Universal pixel shift:
+  - shifts all rendered content together
+  - interval controlled by `MACRO_OLED_SHIFT_INTERVAL_SEC`
+  - range controlled by `MACRO_OLED_SHIFT_RANGE_PX`
+- Inactivity policy:
+  - dim after `MACRO_OLED_DIM_TIMEOUT_SEC`
+  - off after `MACRO_OLED_OFF_TIMEOUT_SEC`
+  - wake immediately on any key/encoder/touch activity
+- Hourly inversion:
+  - inversion toggles hourly after time is valid/synced
+  - avoids false inversion caused by pre-sync placeholder time
+
+### 3) Brightness tuning
+- Default brightness: `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT` (default 70%)
+- Dimmed brightness: `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`
+
 ## Developer Docs
 - Wiki home: `docs/wiki/Home.md`
 - Wiki sidebar/navigation: `docs/wiki/_Sidebar.md`
+- OLED deep-dive: `docs/wiki/OLED-Display.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

@@ -3,6 +3,7 @@
 - [Build and Flash](Build-and-Flash)
 - [Configuration](Configuration)
 - [Runtime Behavior](Runtime-Behavior)
+- [OLED Display](OLED-Display)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [API Reference](API-Reference)
 - [Development Workflow](Development-Workflow)

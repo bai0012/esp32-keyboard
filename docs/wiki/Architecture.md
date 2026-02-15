@@ -27,6 +27,9 @@
   - Framebuffer primitives
   - 7-segment style clock render
 
+OLED subsystem deep-dive:
+- [OLED Display](OLED-Display)
+
 ## 3) Data/Control Flow
 1. Input signals are sampled in `input_task`.
 2. Key/encoder/touch events are mapped using `main/keymap_config.h`.

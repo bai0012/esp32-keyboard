@@ -39,3 +39,6 @@
 
 ### `esp_err_t oled_clock_set_inverted(bool inverted);`
 - Toggles OLED display inversion mode (`normal`/`inverse`).
+
+Behavior/tuning reference:
+- [OLED Display](OLED-Display)

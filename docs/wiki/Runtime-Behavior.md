@@ -50,3 +50,6 @@
   - Inversion timing starts only after SNTP/local time is considered valid, so pre-sync boot time does not trigger a false inversion.
 - Brightness:
   - Default brightness is configurable (`MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`, default 70%).
+
+For complete OLED behavior details and tuning guidance:
+- [OLED Display](OLED-Display)

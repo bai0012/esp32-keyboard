@@ -53,3 +53,6 @@ Defined in `main/keymap_config.h`:
 - `MACRO_OLED_OFF_TIMEOUT_SEC`
 - `MACRO_OLED_SHIFT_RANGE_PX`
 - `MACRO_OLED_SHIFT_INTERVAL_SEC`
+
+Detailed behavior and validation checklist:
+- [OLED Display](OLED-Display)
