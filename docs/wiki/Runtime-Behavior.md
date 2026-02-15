@@ -30,6 +30,9 @@
 - LED 1: HID ready indicator
 - LED 2: active layer color
 - Key LEDs: per-layer dim/active scales
+- Brightness groups:
+  - indicator LEDs use `MACRO_LED_INDICATOR_BRIGHTNESS`
+  - key LEDs use `MACRO_LED_KEY_BRIGHTNESS`
 - LED anti-flicker behavior:
   - refresh is change-driven (no full strip refresh every scan loop)
   - USB/HID indicator states are debounced before being rendered

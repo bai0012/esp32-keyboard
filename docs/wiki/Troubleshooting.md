@@ -39,4 +39,7 @@
 - Verify board power quality and ground integrity for the LED chain.
 - Keep data line short and well-referenced to ground.
 - Confirm firmware includes change-driven LED refresh and indicator debounce logic.
-- If needed, reduce global LED intensity (`LED_BRIGHTNESS` in `main/main.c`) to reduce supply ripple.
+- If needed, reduce LED intensity via `MACRO_LED_INDICATOR_BRIGHTNESS` / `MACRO_LED_KEY_BRIGHTNESS`.
+- Tune brightness groups in `main/keymap_config.h`:
+  - `MACRO_LED_INDICATOR_BRIGHTNESS`
+  - `MACRO_LED_KEY_BRIGHTNESS`

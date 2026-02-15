@@ -110,6 +110,14 @@ static const macro_rgb_t g_layer_backlight_color[MACRO_LAYER_COUNT] = {
     {0, 0, 90},    // Layer 3: Blue
 };
 
+/*
+ * Global LED brightness groups (0..255).
+ * - Indicator group: LEDs 0/1/2 (USB mounted, HID ready, layer indicator).
+ * - Key group: per-key backlight LEDs.
+ */
+#define MACRO_LED_INDICATOR_BRIGHTNESS 20
+#define MACRO_LED_KEY_BRIGHTNESS 24
+
 // 0..255 scales applied to g_layer_backlight_color for idle and pressed key brightness.
 #define MACRO_LAYER_KEY_DIM_SCALE 45
 #define MACRO_LAYER_KEY_ACTIVE_SCALE 140

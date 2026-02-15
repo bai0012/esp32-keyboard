@@ -43,7 +43,6 @@
 
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
-#define LED_BRIGHTNESS 24
 #define LED_STATUS_DEBOUNCE_MS 120
 
 #define WIFI_CONNECTED_BIT BIT0
@@ -134,9 +133,19 @@ static void set_active_layer(uint8_t layer)
     macropad_send_keyboard_report(s_key_pressed, s_active_layer);
 }
 
-static uint8_t dim(uint8_t value)
+static uint8_t apply_brightness(uint8_t value, uint8_t brightness)
 {
-    return (uint8_t)((uint16_t)value * LED_BRIGHTNESS / 255U);
+    return (uint8_t)((uint16_t)value * brightness / 255U);
+}
+
+static inline uint8_t dim_indicator(uint8_t value)
+{
+    return apply_brightness(value, MACRO_LED_INDICATOR_BRIGHTNESS);
+}
+
+static inline uint8_t dim_key(uint8_t value)
+{
+    return apply_brightness(value, MACRO_LED_KEY_BRIGHTNESS);
 }
 
 static esp_err_t update_key_leds(void)
@@ -163,18 +172,18 @@ static esp_err_t update_key_leds(void)
     uint8_t frame[LED_STRIP_COUNT][3] = {0};
 
     if (s_usb_mounted_db.stable_level) {
-        frame[0][0] = dim(0);
-        frame[0][1] = dim(40);
-        frame[0][2] = dim(0);
+        frame[0][0] = dim_indicator(0);
+        frame[0][1] = dim_indicator(40);
+        frame[0][2] = dim_indicator(0);
     }
     if (s_usb_hid_ready_db.stable_level) {
-        frame[1][0] = dim(0);
-        frame[1][1] = dim(0);
-        frame[1][2] = dim(40);
+        frame[1][0] = dim_indicator(0);
+        frame[1][1] = dim_indicator(0);
+        frame[1][2] = dim_indicator(40);
     }
-    frame[2][0] = dim(layer_a_r);
-    frame[2][1] = dim(layer_a_g);
-    frame[2][2] = dim(layer_a_b);
+    frame[2][0] = dim_indicator(layer_a_r);
+    frame[2][1] = dim_indicator(layer_a_g);
+    frame[2][2] = dim_indicator(layer_a_b);
 
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         const macro_action_config_t *cfg = active_key_cfg(i);
@@ -182,14 +191,14 @@ static esp_err_t update_key_leds(void)
             continue;
         }
 
-        frame[cfg->led_index][0] = dim(key_dim_r);
-        frame[cfg->led_index][1] = dim(key_dim_g);
-        frame[cfg->led_index][2] = dim(key_dim_b);
+        frame[cfg->led_index][0] = dim_key(key_dim_r);
+        frame[cfg->led_index][1] = dim_key(key_dim_g);
+        frame[cfg->led_index][2] = dim_key(key_dim_b);
 
         if (s_key_pressed[i]) {
-            frame[cfg->led_index][0] = dim(key_active_r);
-            frame[cfg->led_index][1] = dim(key_active_g);
-            frame[cfg->led_index][2] = dim(key_active_b);
+            frame[cfg->led_index][0] = dim_key(key_active_r);
+            frame[cfg->led_index][1] = dim_key(key_active_g);
+            frame[cfg->led_index][2] = dim_key(key_active_b);
         }
     }
 

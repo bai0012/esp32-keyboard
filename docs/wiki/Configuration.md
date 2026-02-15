@@ -8,6 +8,7 @@ This file controls:
 - encoder mappings per layer
 - touch mappings per layer
 - layer backlight colors
+- LED brightness groups (indicator vs key LEDs)
 - touch algorithm tuning constants
 - OLED protection and brightness constants
 
@@ -58,7 +59,14 @@ Defined in `main/keymap_config.h`:
 Detailed behavior and validation checklist:
 - [OLED Display](OLED-Display)
 
-## 7) System Performance + Flash Layout
+## 7) LED Brightness Groups
+Defined in `main/keymap_config.h`:
+- `MACRO_LED_INDICATOR_BRIGHTNESS`
+  - Applies to indicator LEDs (USB mounted, HID ready, layer indicator).
+- `MACRO_LED_KEY_BRIGHTNESS`
+  - Applies to key backlight LEDs.
+
+## 8) System Performance + Flash Layout
 Primary settings live in `sdkconfig` / `sdkconfig.defaults`:
 - Flash size target: `8MB`
 - CPU frequency target: `240MHz`

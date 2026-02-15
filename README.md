@@ -74,6 +74,9 @@ Edit `main/keymap_config.h`:
 - `g_encoder_layer_config`
 - `g_touch_layer_config`
 - Touch tuning constants (`MACRO_TOUCH_*`)
+- LED brightness group constants:
+  - `MACRO_LED_INDICATOR_BRIGHTNESS` (LEDs 0/1/2 group)
+  - `MACRO_LED_KEY_BRIGHTNESS` (12 key LEDs group)
 - OLED protection constants (`MACRO_OLED_*`)
   - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
 
