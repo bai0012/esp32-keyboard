@@ -138,7 +138,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_NOTE_GAP_MS 8
 
 #define MACRO_BUZZER_STARTUP_ENABLED true
-#define MACRO_BUZZER_RTTTL_STARTUP "mario:d=8,o=6,b=100:e,e,p,e,p,c,e,p,g,p,g5"
+#define MACRO_BUZZER_RTTTL_STARTUP "Mission Impossible:o=5,d=16,b=100,b=100:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,p,a#4,c"
 
 #define MACRO_BUZZER_KEYPRESS_ENABLED true
 #define MACRO_BUZZER_RTTTL_KEYPRESS "key:d=32,o=6,b=180:c"
@@ -152,6 +152,10 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_ENCODER_CW "cw:d=32,o=6,b=220:e"
 #define MACRO_BUZZER_RTTTL_ENCODER_CCW "ccw:d=32,o=6,b=220:d"
 #define MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS 14
+#define MACRO_BUZZER_ENCODER_TOGGLE_ENABLED false
+#define MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT 5
+#define MACRO_BUZZER_RTTTL_TOGGLE_ON "bon:d=32,o=6,b=180:g"
+#define MACRO_BUZZER_RTTTL_TOGGLE_OFF "boff:d=32,o=5,b=180:e"
 
 #define MACRO_TOUCH_TRIGGER_PERCENT 85
 #define MACRO_TOUCH_RELEASE_PERCENT 92

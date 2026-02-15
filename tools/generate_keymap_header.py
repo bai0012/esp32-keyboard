@@ -61,6 +61,12 @@ def render_header(cfg: dict[str, Any]) -> str:
     touch = cfg["touch"]
     oled = cfg["oled"]
     buzzer = cfg["buzzer"]
+    encoder_toggle = buzzer.get("encoder_toggle", {
+        "enabled": False,
+        "tap_count": 5,
+        "on_rtttl": "",
+        "off_rtttl": "",
+    })
 
     out: list[str] = []
     out.append("// AUTO-GENERATED FILE. DO NOT EDIT.")
@@ -206,6 +212,10 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_BUZZER_RTTTL_ENCODER_CW {c_str(str(buzzer['encoder_step']['cw_rtttl']))}")
     out.append(f"#define MACRO_BUZZER_RTTTL_ENCODER_CCW {c_str(str(buzzer['encoder_step']['ccw_rtttl']))}")
     out.append(f"#define MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS {as_int(buzzer['encoder_step']['min_interval_ms'], 'buzzer.encoder_step.min_interval_ms')}")
+    out.append(f"#define MACRO_BUZZER_ENCODER_TOGGLE_ENABLED {c_bool(encoder_toggle['enabled'])}")
+    out.append(f"#define MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT {as_int(encoder_toggle['tap_count'], 'buzzer.encoder_toggle.tap_count')}")
+    out.append(f"#define MACRO_BUZZER_RTTTL_TOGGLE_ON {c_str(str(encoder_toggle['on_rtttl']))}")
+    out.append(f"#define MACRO_BUZZER_RTTTL_TOGGLE_OFF {c_str(str(encoder_toggle['off_rtttl']))}")
     out.append("")
     out.append(f"#define MACRO_TOUCH_TRIGGER_PERCENT {as_int(touch['trigger_percent'], 'touch.trigger_percent')}")
     out.append(f"#define MACRO_TOUCH_RELEASE_PERCENT {as_int(touch['release_percent'], 'touch.release_percent')}")

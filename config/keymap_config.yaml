@@ -184,7 +184,7 @@ buzzer:
   startup:
     enabled: true
     # Example RTTTL melody: Mario intro phrase.
-    rtttl: 'mario:d=8,o=6,b=100:e,e,p,e,p,c,e,p,g,p,g5'
+    rtttl: 'Mission Impossible:o=5,d=16,b=100,b=100:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,p,a#4,c'
 
   keypress:
     enabled: true
@@ -204,3 +204,12 @@ buzzer:
     ccw_rtttl: 'ccw:d=32,o=6,b=220:d'
     # Throttle fast encoder spam to avoid long audio tail.
     min_interval_ms: 14
+
+  # Optional encoder-button tap shortcut to toggle buzzer runtime on/off.
+  # Suggested tap counts:
+  # - 5 keeps compatibility with current layer-switch multi-tap behavior (2/3/4 taps).
+  encoder_toggle:
+    enabled: false
+    tap_count: 5
+    on_rtttl: 'bon:d=32,o=6,b=180:g'
+    off_rtttl: 'boff:d=32,o=5,b=180:e'

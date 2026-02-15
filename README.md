@@ -22,10 +22,11 @@ Hardware reference is documented in `hardware_info.md`.
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
 - OLED digital clock with SNTP sync indicator
 - Passive buzzer feedback:
-  - startup Mario intro notes (first phrase)
+  - startup melody via RTTTL
   - key-press click
   - layer-switch beeps N times for layer N
   - optional encoder-step tone
+  - optional encoder multi-tap toggle for buzzer enable/disable, with configurable on/off tones
   - all event sounds configurable via RTTTL strings in `config/keymap_config.yaml`
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
@@ -117,7 +118,9 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - startup/key/layer/encoder feedback behavior is driven by `buzzer.*` in YAML
   - event melodies use RTTTL strings (`name:d=,o=,b=:notes`)
   - tone playback is non-blocking and queued
+  - startup RTTTL is streamed incrementally so long boot melodies are not truncated by queue depth
   - encoder-step beeps are throttled/coalesced to avoid long tail playback after very fast spins
+  - optional encoder multi-tap can toggle buzzer state (`buzzer.encoder_toggle.*`)
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.

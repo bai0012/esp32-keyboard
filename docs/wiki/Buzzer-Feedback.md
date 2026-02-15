@@ -7,6 +7,7 @@
 - Driver: LEDC PWM
 
 The buzzer uses a non-blocking queue, so sound feedback does not stall input handling.
+Startup melody is streamed incrementally from RTTTL, so long boot songs are not truncated by queue depth.
 
 ## 2) Runtime Integration
 - `app_main()`:
@@ -41,6 +42,11 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_RTTTL_ENCODER_CW`
   - `MACRO_BUZZER_RTTTL_ENCODER_CCW`
   - `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS`
+- Encoder toggle shortcut:
+  - `MACRO_BUZZER_ENCODER_TOGGLE_ENABLED`
+  - `MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT`
+  - `MACRO_BUZZER_RTTTL_TOGGLE_ON`
+  - `MACRO_BUZZER_RTTTL_TOGGLE_OFF`
 
 ## 4) RTTTL Support
 - Event sounds are defined as RTTTL strings in YAML config (`buzzer.*`).
@@ -75,6 +81,12 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
 - Encoder rotated very fast but sound keeps trailing:
   - increase `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS`
   - shorten encoder RTTTL note duration
+- Need a runtime mute/unmute shortcut:
+  - enable encoder toggle in YAML (`buzzer.encoder_toggle.enabled`)
+  - set its tap count to avoid conflicts with layer taps (`2/3/4` are already used)
+- Startup melody stops too early:
+  - startup playback now streams by design
+  - if still truncated, validate RTTTL syntax (header + note tokens)
 - Want silent firmware:
   - set `MACRO_BUZZER_ENABLED` to `false`
 

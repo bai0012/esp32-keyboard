@@ -95,6 +95,10 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `buzzer.encoder_step.cw_rtttl` | `'cw:d=32,o=6,b=220:e'` | Clockwise encoder step tone. |
 | `buzzer.encoder_step.ccw_rtttl` | `'ccw:d=32,o=6,b=220:d'` | Counter-clockwise encoder step tone. |
 | `buzzer.encoder_step.min_interval_ms` | `14` | Minimum interval between queued encoder tones (anti-tail). |
+| `buzzer.encoder_toggle.enabled` | `false` | Enable encoder multi-tap buzzer toggle shortcut. |
+| `buzzer.encoder_toggle.tap_count` | `5` | Tap count used to toggle buzzer (recommended `5` to avoid layer-tap conflicts). |
+| `buzzer.encoder_toggle.on_rtttl` | `'bon:d=32,o=6,b=180:g'` | Sound played when buzzer is turned on. |
+| `buzzer.encoder_toggle.off_rtttl` | `'boff:d=32,o=5,b=180:e'` | Sound played before buzzer turns off. |
 
 ## 3) Validation Rules
 - `counts.layer` must equal:

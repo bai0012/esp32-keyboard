@@ -52,7 +52,9 @@
   - optional encoder-step tone
 - Event and tone parameters are configured via `buzzer.*` in `config/keymap_config.yaml` (generated to `MACRO_BUZZER_*`).
 - Event melodies are RTTTL strings; playback is parsed and queued at runtime.
+- Startup melody is streamed from RTTTL so long boot tunes are not capped by queue depth.
 - Encoder-step tones are rate-limited and coalesced to avoid post-spin tail playback.
+- Optional encoder multi-tap can toggle buzzer enable/disable with configurable on/off tones.
 
 ## 8) OLED Screen Protection
 - Universal pixel shifting:

@@ -483,7 +483,14 @@ static void input_task(void *arg)
             const uint8_t taps = s_encoder_tap_count;
             s_encoder_tap_count = 0;
 
-            if (taps == 1) {
+            if (MACRO_BUZZER_ENCODER_TOGGLE_ENABLED &&
+                taps == (uint8_t)MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT) {
+                s_encoder_single_pending = false;
+                const bool now_enabled = buzzer_toggle_enabled();
+                ESP_LOGI(TAG, "Buzzer %s via encoder taps=%u",
+                         now_enabled ? "enabled" : "disabled",
+                         (unsigned)taps);
+            } else if (taps == 1) {
                 s_encoder_single_pending = true;
                 s_encoder_single_due_tick = now + pdMS_TO_TICKS(MACRO_ENCODER_SINGLE_TAP_DELAY_MS);
                 ESP_LOGI(TAG, "Encoder single tap pending (%u ms)", (unsigned)MACRO_ENCODER_SINGLE_TAP_DELAY_MS);
@@ -667,5 +674,5 @@ void app_main(void)
     xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL);
 
     ESP_LOGI(TAG, "Macro keyboard started");
-    ESP_LOGI(TAG, "Edit mapping in main/keymap_config.h");
+    ESP_LOGI(TAG, "Edit mapping in config/keymap_config.yaml");
 }

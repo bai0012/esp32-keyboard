@@ -45,9 +45,16 @@ static uint8_t s_queue_count = 0;
 static buzzer_tone_t s_current_tone = {0};
 static TickType_t s_phase_deadline = 0;
 static bool s_initialized = false;
+static bool s_runtime_enabled = true;
 static bool s_tone_active = false;
 static bool s_silence_active = false;
+static bool s_disable_when_idle = false;
 static TickType_t s_encoder_last_enqueue_tick = 0;
+static bool s_startup_stream_active = false;
+static rtttl_cfg_t s_startup_stream_cfg = {0};
+static const char *s_startup_stream_cursor = NULL;
+
+static esp_err_t queue_silence(uint16_t duration_ms);
 
 static inline bool tick_reached(TickType_t now, TickType_t deadline)
 {
@@ -267,6 +274,154 @@ static uint16_t rtttl_duration_ms(const rtttl_cfg_t *cfg, uint16_t duration, uin
     return (uint16_t)note_ms;
 }
 
+static esp_err_t rtttl_parse_next_tone(const rtttl_cfg_t *cfg,
+                                       const char *cursor,
+                                       const char **next_cursor,
+                                       buzzer_tone_t *tone,
+                                       bool *done)
+{
+    const char *s = cursor;
+    while (true) {
+        s = skip_spaces(s);
+        if (*s == ',') {
+            ++s;
+            continue;
+        }
+        if (*s == '\0') {
+            *done = true;
+            *next_cursor = s;
+            return ESP_OK;
+        }
+
+        uint16_t duration = cfg->default_duration;
+        uint16_t parsed_num = 0;
+        if (parse_u16(&s, &parsed_num) && parsed_num > 0) {
+            duration = parsed_num;
+        }
+        if (*s == '\0') {
+            *done = true;
+            *next_cursor = s;
+            return ESP_OK;
+        }
+
+        const char note = (char)tolower((unsigned char)*s);
+        if (strchr("abcdefgp", note) == NULL) {
+            while (*s != '\0' && *s != ',') {
+                ++s;
+            }
+            continue;
+        }
+        ++s;
+
+        bool sharp = false;
+        if (*s == '#') {
+            sharp = true;
+            ++s;
+        }
+
+        uint8_t dots = 0;
+        while (*s == '.') {
+            dots++;
+            ++s;
+        }
+
+        uint8_t octave = cfg->default_octave;
+        parsed_num = 0;
+        if (parse_u16(&s, &parsed_num) && parsed_num <= 9U) {
+            octave = (uint8_t)parsed_num;
+        }
+
+        while (*s == '.') {
+            dots++;
+            ++s;
+        }
+
+        const uint16_t note_ms = rtttl_duration_ms(cfg, duration, dots);
+        if (note == 'p') {
+            tone->frequency_hz = 0;
+            tone->duration_ms = note_ms;
+            tone->silence_ms = 0;
+        } else {
+            const uint16_t freq = rtttl_note_to_freq(note, sharp, octave);
+            if (freq == 0U) {
+                return ESP_ERR_INVALID_ARG;
+            }
+            tone->frequency_hz = freq;
+            tone->duration_ms = note_ms;
+            tone->silence_ms = 0;
+        }
+
+        while (*s != '\0' && *s != ',') {
+            ++s;
+        }
+        if (*s == ',') {
+            ++s;
+        }
+
+        *done = false;
+        *next_cursor = s;
+        return ESP_OK;
+    }
+}
+
+static esp_err_t queue_rtttl_tone(const buzzer_tone_t *parsed_tone)
+{
+    if (parsed_tone->frequency_hz == 0U) {
+        return queue_silence(parsed_tone->duration_ms);
+    }
+
+    buzzer_tone_t tone = *parsed_tone;
+    if (MACRO_BUZZER_RTTTL_NOTE_GAP_MS > 0U &&
+        tone.duration_ms > (MACRO_BUZZER_RTTTL_NOTE_GAP_MS + 1U)) {
+        tone.silence_ms = MACRO_BUZZER_RTTTL_NOTE_GAP_MS;
+        tone.duration_ms = (uint16_t)(tone.duration_ms - tone.silence_ms);
+    }
+    return queue_push(&tone);
+}
+
+static esp_err_t rtttl_enqueue_next(const rtttl_cfg_t *cfg, const char **cursor, bool *done)
+{
+    buzzer_tone_t tone = {0};
+    const char *next = *cursor;
+    bool end = false;
+    ESP_RETURN_ON_ERROR(rtttl_parse_next_tone(cfg, *cursor, &next, &tone, &end), TAG, "invalid RTTTL note");
+    if (end) {
+        *done = true;
+        return ESP_OK;
+    }
+
+    esp_err_t err = queue_rtttl_tone(&tone);
+    if (err != ESP_OK) {
+        return err;
+    }
+    *done = false;
+    *cursor = next;
+    return ESP_OK;
+}
+
+static void buzzer_feed_startup_stream(void)
+{
+    if (!s_startup_stream_active) {
+        return;
+    }
+    while (s_queue_count < MACRO_BUZZER_QUEUE_SIZE) {
+        bool done = false;
+        esp_err_t err = rtttl_enqueue_next(&s_startup_stream_cfg, &s_startup_stream_cursor, &done);
+        if (err == ESP_ERR_NO_MEM) {
+            break;
+        }
+        if (err != ESP_OK) {
+            s_startup_stream_active = false;
+            ESP_LOGW(TAG, "startup RTTTL stream invalid: %s", esp_err_to_name(err));
+            break;
+        }
+        if (done) {
+            s_startup_stream_active = false;
+            break;
+        }
+    }
+}
+
 static esp_err_t queue_silence(uint16_t duration_ms)
 {
     const buzzer_tone_t tone = {
@@ -366,9 +521,13 @@ esp_err_t buzzer_init(void)
     buzzer_output_disable();
 
     queue_clear();
+    s_runtime_enabled = true;
     s_tone_active = false;
     s_silence_active = false;
+    s_disable_when_idle = false;
     s_encoder_last_enqueue_tick = 0;
+    s_startup_stream_active = false;
+    s_startup_stream_cursor = NULL;
     s_initialized = true;
     ESP_LOGI(TAG, "ready gpio=%d duty=%u%%", (int)MACRO_BUZZER_GPIO, (unsigned)MACRO_BUZZER_DUTY_PERCENT);
     return ESP_OK;
@@ -382,14 +541,79 @@ void buzzer_stop(void)
     queue_clear();
     s_tone_active = false;
     s_silence_active = false;
+    s_disable_when_idle = false;
     s_encoder_last_enqueue_tick = 0;
+    s_startup_stream_active = false;
+    s_startup_stream_cursor = NULL;
     s_current_tone = (buzzer_tone_t){0};
     buzzer_output_disable();
 }
 
-esp_err_t buzzer_play_tone_ex(uint16_t frequency_hz, uint16_t duration_ms, uint16_t silence_ms)
+void buzzer_set_enabled(bool enabled)
 {
     if (!MACRO_BUZZER_ENABLED || !s_initialized) {
+        return;
+    }
+    if (enabled) {
+        s_disable_when_idle = false;
+        s_runtime_enabled = true;
+        return;
+    }
+
+    s_runtime_enabled = false;
+    s_disable_when_idle = false;
+    buzzer_stop();
+}
+
+bool buzzer_is_enabled(void)
+{
+    return MACRO_BUZZER_ENABLED && s_initialized && s_runtime_enabled;
+}
+
+bool buzzer_toggle_enabled(void)
+{
+    if (!MACRO_BUZZER_ENABLED || !s_initialized) {
+        return false;
+    }
+
+    if (s_runtime_enabled && !s_disable_when_idle) {
+        // Keep only toggle-off feedback tone, then disable when it finishes.
+        queue_clear();
+        s_tone_active = false;
+        s_silence_active = false;
+        s_startup_stream_active = false;
+        s_startup_stream_cursor = NULL;
+        buzzer_output_disable();
+
+        if (MACRO_BUZZER_RTTTL_TOGGLE_OFF[0] != '\0') {
+            esp_err_t err = buzzer_play_rtttl(MACRO_BUZZER_RTTTL_TOGGLE_OFF);
+            if (err == ESP_OK) {
+                s_disable_when_idle = true;
+                return false;
+            }
+            ESP_LOGW(TAG, "toggle-off RTTTL invalid: %s", esp_err_to_name(err));
+        }
+
+        s_runtime_enabled = false;
+        s_disable_when_idle = false;
+        buzzer_output_disable();
+        return false;
+    }
+
+    s_runtime_enabled = true;
+    s_disable_when_idle = false;
+    if (MACRO_BUZZER_RTTTL_TOGGLE_ON[0] != '\0') {
+        esp_err_t err = buzzer_play_rtttl(MACRO_BUZZER_RTTTL_TOGGLE_ON);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "toggle-on RTTTL invalid: %s", esp_err_to_name(err));
+        }
+    }
+    return true;
+}
+
+esp_err_t buzzer_play_tone_ex(uint16_t frequency_hz, uint16_t duration_ms, uint16_t silence_ms)
+{
+    if (!MACRO_BUZZER_ENABLED || !s_initialized || !s_runtime_enabled || s_disable_when_idle) {
         return ESP_OK;
     }
     if (frequency_hz == 0 || duration_ms == 0) {
@@ -410,7 +634,7 @@ esp_err_t buzzer_play_tone(uint16_t frequency_hz, uint16_t duration_ms)
 
 esp_err_t buzzer_play_rtttl(const char *rtttl)
 {
-    if (!MACRO_BUZZER_ENABLED || !s_initialized) {
+    if (!MACRO_BUZZER_ENABLED || !s_initialized || !s_runtime_enabled || s_disable_when_idle) {
         return ESP_OK;
     }
     if (rtttl == NULL || rtttl[0] == '\0') {
@@ -420,81 +644,15 @@ esp_err_t buzzer_play_rtttl(const char *rtttl)
     rtttl_cfg_t cfg = {0};
     ESP_RETURN_ON_ERROR(rtttl_parse_header(rtttl, &cfg), TAG, "invalid RTTTL header");
 
-    const char *s = cfg.notes;
-    while (*s != '\0') {
-        s = skip_spaces(s);
-        if (*s == ',') {
-            ++s;
-            continue;
+    const char *cursor = cfg.notes;
+    while (*cursor != '\0') {
+        bool done = false;
+        esp_err_t err = rtttl_enqueue_next(&cfg, &cursor, &done);
+        if (err != ESP_OK) {
+            return err;
         }
-        if (*s == '\0') {
+        if (done) {
             break;
-        }
-
-        uint16_t duration = cfg.default_duration;
-        uint16_t parsed_num = 0;
-        if (parse_u16(&s, &parsed_num) && parsed_num > 0) {
-            duration = parsed_num;
-        }
-        if (*s == '\0') {
-            break;
-        }
-
-        char note = (char)tolower((unsigned char)*s);
-        if (strchr("abcdefgp", note) == NULL) {
-            while (*s != '\0' && *s != ',') {
-                ++s;
-            }
-            continue;
-        }
-        ++s;
-
-        bool sharp = false;
-        if (*s == '#') {
-            sharp = true;
-            ++s;
-        }
-
-        uint8_t dots = 0;
-        while (*s == '.') {
-            dots++;
-            ++s;
-        }
-
-        uint8_t octave = cfg.default_octave;
-        parsed_num = 0;
-        if (parse_u16(&s, &parsed_num) && parsed_num <= 9U) {
-            octave = (uint8_t)parsed_num;
-        }
-
-        while (*s == '.') {
-            dots++;
-            ++s;
-        }
-
-        const uint16_t note_ms = rtttl_duration_ms(&cfg, duration, dots);
-        if (note == 'p') {
-            ESP_RETURN_ON_ERROR(queue_silence(note_ms), TAG, "buzzer queue full");
-        } else {
-            const uint16_t freq = rtttl_note_to_freq(note, sharp, octave);
-            if (freq == 0U) {
-                return ESP_ERR_INVALID_ARG;
-            }
-
-            uint16_t tone_ms = note_ms;
-            uint16_t gap_ms = 0;
-            if (MACRO_BUZZER_RTTTL_NOTE_GAP_MS > 0U && note_ms > (MACRO_BUZZER_RTTTL_NOTE_GAP_MS + 1U)) {
-                gap_ms = MACRO_BUZZER_RTTTL_NOTE_GAP_MS;
-                tone_ms = (uint16_t)(note_ms - gap_ms);
-            }
-            ESP_RETURN_ON_ERROR(buzzer_play_tone_ex(freq, tone_ms, gap_ms), TAG, "buzzer queue full");
-        }
-
-        while (*s != '\0' && *s != ',') {
-            ++s;
-        }
-        if (*s == ',') {
-            ++s;
         }
     }
     return ESP_OK;
@@ -505,9 +663,19 @@ void buzzer_update(TickType_t now)
     if (!MACRO_BUZZER_ENABLED || !s_initialized) {
         return;
     }
+    if (!s_runtime_enabled && !s_disable_when_idle) {
+        return;
+    }
+
+    buzzer_feed_startup_stream();
 
     if (!s_tone_active && !s_silence_active) {
         buzzer_start_next_tone(now);
+        if (s_disable_when_idle && !s_tone_active && !s_silence_active && s_queue_count == 0) {
+            s_runtime_enabled = false;
+            s_disable_when_idle = false;
+            buzzer_output_disable();
+        }
         return;
     }
 
@@ -529,6 +697,12 @@ void buzzer_update(TickType_t now)
         s_silence_active = false;
         buzzer_start_next_tone(now);
     }
+
+    if (s_disable_when_idle && !s_tone_active && !s_silence_active && s_queue_count == 0) {
+        s_runtime_enabled = false;
+        s_disable_when_idle = false;
+        buzzer_output_disable();
+    }
 }
 
 void buzzer_play_startup(void)
@@ -536,15 +710,26 @@ void buzzer_play_startup(void)
     if (!MACRO_BUZZER_STARTUP_ENABLED) {
         return;
     }
-    esp_err_t err = buzzer_play_rtttl(MACRO_BUZZER_RTTTL_STARTUP);
+    if (!s_runtime_enabled || s_disable_when_idle) {
+        return;
+    }
+
+    rtttl_cfg_t cfg = {0};
+    esp_err_t err = rtttl_parse_header(MACRO_BUZZER_RTTTL_STARTUP, &cfg);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "startup RTTTL invalid: %s", esp_err_to_name(err));
+        return;
     }
+
+    s_startup_stream_cfg = cfg;
+    s_startup_stream_cursor = cfg.notes;
+    s_startup_stream_active = true;
+    buzzer_feed_startup_stream();
 }
 
 void buzzer_play_keypress(void)
 {
-    if (!MACRO_BUZZER_KEYPRESS_ENABLED) {
+    if (!MACRO_BUZZER_KEYPRESS_ENABLED || !s_runtime_enabled || s_disable_when_idle) {
         return;
     }
     esp_err_t err = buzzer_play_rtttl(MACRO_BUZZER_RTTTL_KEYPRESS);
@@ -555,7 +740,7 @@ void buzzer_play_keypress(void)
 
 void buzzer_play_layer_switch(uint8_t layer_index)
 {
-    if (!MACRO_BUZZER_LAYER_SWITCH_ENABLED) {
+    if (!MACRO_BUZZER_LAYER_SWITCH_ENABLED || !s_runtime_enabled || s_disable_when_idle) {
         return;
     }
     const char *rtttl = MACRO_BUZZER_RTTTL_LAYER1;
@@ -572,7 +757,7 @@ void buzzer_play_layer_switch(uint8_t layer_index)
 
 void buzzer_play_encoder_step(int8_t direction)
 {
-    if (!MACRO_BUZZER_ENCODER_STEP_ENABLED) {
+    if (!MACRO_BUZZER_ENCODER_STEP_ENABLED || !s_runtime_enabled || s_disable_when_idle) {
         return;
     }
 

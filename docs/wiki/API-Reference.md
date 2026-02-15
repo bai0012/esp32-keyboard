@@ -55,6 +55,16 @@ Behavior/tuning reference:
 ### `void buzzer_stop(void);`
 - Stops output and clears queued tones.
 
+### `void buzzer_set_enabled(bool enabled);`
+- Enables or disables buzzer feedback at runtime.
+
+### `bool buzzer_is_enabled(void);`
+- Returns current runtime buzzer-enable state.
+
+### `bool buzzer_toggle_enabled(void);`
+- Toggles runtime buzzer state.
+- Uses configured on/off RTTTL feedback when available.
+
 ### `esp_err_t buzzer_play_tone(uint16_t frequency_hz, uint16_t duration_ms);`
 - Queues a tone.
 
@@ -70,6 +80,7 @@ Behavior/tuning reference:
 ### `void buzzer_play_layer_switch(uint8_t layer_index);`
 ### `void buzzer_play_encoder_step(int8_t direction);`
 - Convenience event helpers that map runtime events to configured tones.
+- Startup helper uses streaming playback so long startup RTTTL is not limited by queue depth.
 
 Behavior/tuning reference:
 - [Buzzer Feedback](Buzzer-Feedback)
