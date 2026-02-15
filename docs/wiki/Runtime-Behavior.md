@@ -46,9 +46,9 @@
 ## 7) Buzzer Feedback
 - Buzzer playback is non-blocking and queue-driven.
 - Default event hooks:
-  - startup chirp
+  - startup Mario intro notes (first phrase)
   - key-press click
-  - layer-switch tone
+  - layer-switch beeps N times for layer N
   - optional encoder-step tone
 - Event and tone parameters are configured via `MACRO_BUZZER_*` in `main/keymap_config.h`.
 

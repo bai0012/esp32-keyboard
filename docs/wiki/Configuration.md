@@ -92,5 +92,10 @@ Event toggles and tones:
 - `MACRO_BUZZER_LAYER_SWITCH_*`
 - `MACRO_BUZZER_ENCODER_STEP_*`
 
+Notable buzzer constants:
+- `MACRO_BUZZER_STARTUP_TONE_MS`
+- `MACRO_BUZZER_STARTUP_GAP_MS`
+- `MACRO_BUZZER_LAYER_GAP_MS`
+
 Behavior details:
 - [Buzzer Feedback](Buzzer-Feedback)

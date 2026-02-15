@@ -86,10 +86,28 @@ static bool queue_pop(buzzer_tone_t *tone_out)
     return true;
 }
 
+static esp_err_t buzzer_set_frequency(uint16_t frequency_hz)
+{
+    const uint32_t actual = ledc_set_freq(BUZZER_SPEED_MODE, BUZZER_TIMER, frequency_hz);
+    if (actual != 0) {
+        return ESP_OK;
+    }
+
+    // Recover from runtime timer state mismatch by reconfiguring this timer.
+    const ledc_timer_config_t timer_cfg = {
+        .speed_mode = BUZZER_SPEED_MODE,
+        .duty_resolution = BUZZER_DUTY_RES,
+        .timer_num = BUZZER_TIMER,
+        .freq_hz = frequency_hz,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    return ledc_timer_config(&timer_cfg);
+}
+
 static esp_err_t buzzer_output_enable(uint16_t frequency_hz)
 {
-    if (ledc_set_freq(BUZZER_SPEED_MODE, BUZZER_TIMER, frequency_hz) == 0) {
-        return ESP_FAIL;
+    if (buzzer_set_frequency(frequency_hz) != ESP_OK) {
+        return ESP_ERR_INVALID_STATE;
     }
     ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(BUZZER_SPEED_MODE,
                                                 BUZZER_CHANNEL,
@@ -227,10 +245,27 @@ void buzzer_play_startup(void)
     if (!MACRO_BUZZER_STARTUP_ENABLED) {
         return;
     }
-    (void)buzzer_play_tone_ex(MACRO_BUZZER_STARTUP_FREQ1_HZ,
-                              MACRO_BUZZER_STARTUP_TONE_MS,
-                              MACRO_BUZZER_STARTUP_GAP_MS);
-    (void)buzzer_play_tone(MACRO_BUZZER_STARTUP_FREQ2_HZ, MACRO_BUZZER_STARTUP_TONE_MS);
+
+    // Mario theme intro (first few notes).
+    // E7 E7 . E7 . C7 E7 . G7 . G6
+    const uint16_t note = MACRO_BUZZER_STARTUP_TONE_MS;
+    const uint16_t gap = MACRO_BUZZER_STARTUP_GAP_MS;
+    static const uint16_t e7 = 2637;
+    static const uint16_t c7 = 2093;
+    static const uint16_t g7 = 3136;
+    static const uint16_t g6 = 1568;
+    const buzzer_tone_t intro[] = {
+        {e7, note, gap},             // E7
+        {e7, note, (uint16_t)(gap * 2U + gap / 2U)},    // E7
+        {e7, note, (uint16_t)(gap * 3U)},               // E7
+        {c7, note, (uint16_t)(gap * 2U)},               // C7
+        {e7, note, (uint16_t)(gap * 3U)},               // E7
+        {g7, note, (uint16_t)(gap * 4U + gap / 3U)},    // G7
+        {g6, note, 0},              // G6
+    };
+    for (size_t i = 0; i < (sizeof(intro) / sizeof(intro[0])); ++i) {
+        (void)buzzer_play_tone_ex(intro[i].frequency_hz, intro[i].duration_ms, intro[i].silence_ms);
+    }
 }
 
 void buzzer_play_keypress(void)
@@ -246,9 +281,14 @@ void buzzer_play_layer_switch(uint8_t layer_index)
     if (!MACRO_BUZZER_LAYER_SWITCH_ENABLED) {
         return;
     }
+
+    const uint8_t layer_number = (uint8_t)(layer_index + 1U);
     const uint16_t freq =
         (uint16_t)(MACRO_BUZZER_LAYER_BASE_FREQ_HZ + ((uint16_t)layer_index * MACRO_BUZZER_LAYER_STEP_HZ));
-    (void)buzzer_play_tone(freq, MACRO_BUZZER_LAYER_MS);
+    for (uint8_t i = 0; i < layer_number; ++i) {
+        const uint16_t gap = (i + 1U < layer_number) ? MACRO_BUZZER_LAYER_GAP_MS : 0;
+        (void)buzzer_play_tone_ex(freq, MACRO_BUZZER_LAYER_MS, gap);
+    }
 }
 
 void buzzer_play_encoder_step(int8_t direction)

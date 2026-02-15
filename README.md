@@ -22,9 +22,9 @@ Hardware reference is documented in `hardware_info.md`.
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
 - OLED digital clock with SNTP sync indicator
 - Passive buzzer feedback:
-  - startup chirp
+  - startup Mario intro notes (first phrase)
   - key-press click
-  - layer-switch tone
+  - layer-switch beeps N times for layer N
   - optional encoder-step tone
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
@@ -86,7 +86,7 @@ Edit `main/keymap_config.h`:
   - `MACRO_LED_KEY_BRIGHTNESS` (12 key LEDs group)
 - Buzzer constants (`MACRO_BUZZER_*`)
   - GPIO, duty cycle, queue size
-  - startup/key/layer/encoder tone behavior
+  - startup/key/layer/encoder tone behavior (including layer-beep gap)
 - OLED protection constants (`MACRO_OLED_*`)
   - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
 

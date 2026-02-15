@@ -14,7 +14,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `buzzer_play_startup()`
 - `input_task`:
   - key press -> `buzzer_play_keypress()`
-  - layer switch -> `buzzer_play_layer_switch()`
+  - layer switch -> `buzzer_play_layer_switch()` (beeps N times for layer N)
   - encoder step -> `buzzer_play_encoder_step()` (optional, config-gated)
   - periodic service -> `buzzer_update(now)`
 
@@ -26,8 +26,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_QUEUE_SIZE`
 - Startup:
   - `MACRO_BUZZER_STARTUP_ENABLED`
-  - `MACRO_BUZZER_STARTUP_FREQ1_HZ`
-  - `MACRO_BUZZER_STARTUP_FREQ2_HZ`
+  - startup melody is Mario intro (first few notes)
   - `MACRO_BUZZER_STARTUP_TONE_MS`
   - `MACRO_BUZZER_STARTUP_GAP_MS`
 - Key press:
@@ -39,6 +38,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_LAYER_BASE_FREQ_HZ`
   - `MACRO_BUZZER_LAYER_STEP_HZ`
   - `MACRO_BUZZER_LAYER_MS`
+  - `MACRO_BUZZER_LAYER_GAP_MS`
 - Encoder step:
   - `MACRO_BUZZER_ENCODER_STEP_ENABLED`
   - `MACRO_BUZZER_ENCODER_CW_FREQ_HZ`
@@ -70,6 +70,6 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
 ## 6) Validation Checklist
 1. Boot device and verify startup chirp (if enabled).
 2. Press keys and verify click feedback.
-3. Switch layers via encoder multi-tap and verify per-layer tone change.
+3. Switch layers via encoder multi-tap and verify layer N beeps exactly N times.
 4. Rotate encoder and verify optional step tone behavior.
 5. Confirm no input lag while buzzer is active.
