@@ -174,25 +174,24 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_GPIO GPIO_NUM_21
 #define MACRO_BUZZER_DUTY_PERCENT 28
 #define MACRO_BUZZER_QUEUE_SIZE 16
+#define MACRO_BUZZER_RTTTL_NOTE_GAP_MS 8
 
 #define MACRO_BUZZER_STARTUP_ENABLED true
-#define MACRO_BUZZER_STARTUP_TONE_MS 90
-#define MACRO_BUZZER_STARTUP_GAP_MS 60
+// Mario intro (first phrase): E E . E . C E . G . G5
+#define MACRO_BUZZER_RTTTL_STARTUP "mario:d=8,o=6,b=100:e,e,p,e,p,c,e,p,g,p,g5"
 
 #define MACRO_BUZZER_KEYPRESS_ENABLED true
-#define MACRO_BUZZER_KEYPRESS_FREQ_HZ 2700
-#define MACRO_BUZZER_KEYPRESS_MS 10
+#define MACRO_BUZZER_RTTTL_KEYPRESS "key:d=32,o=6,b=180:c"
 
 #define MACRO_BUZZER_LAYER_SWITCH_ENABLED true
-#define MACRO_BUZZER_LAYER_BASE_FREQ_HZ 1300
-#define MACRO_BUZZER_LAYER_STEP_HZ 250
-#define MACRO_BUZZER_LAYER_MS 26
-#define MACRO_BUZZER_LAYER_GAP_MS 85
+// Layer feedback defaults: layer N beeps N times.
+#define MACRO_BUZZER_RTTTL_LAYER1 "l1:d=16,o=6,b=180:g"
+#define MACRO_BUZZER_RTTTL_LAYER2 "l2:d=16,o=6,b=180:g,g"
+#define MACRO_BUZZER_RTTTL_LAYER3 "l3:d=16,o=6,b=180:g,g,g"
 
 #define MACRO_BUZZER_ENCODER_STEP_ENABLED false
-#define MACRO_BUZZER_ENCODER_CW_FREQ_HZ 2400
-#define MACRO_BUZZER_ENCODER_CCW_FREQ_HZ 2100
-#define MACRO_BUZZER_ENCODER_MS 8
+#define MACRO_BUZZER_RTTTL_ENCODER_CW "cw:d=32,o=6,b=220:e"
+#define MACRO_BUZZER_RTTTL_ENCODER_CCW "ccw:d=32,o=6,b=220:d"
 
 // Touch active threshold = baseline * percent / 100
 #define MACRO_TOUCH_TRIGGER_PERCENT 85

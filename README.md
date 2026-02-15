@@ -26,6 +26,7 @@ Hardware reference is documented in `hardware_info.md`.
   - key-press click
   - layer-switch beeps N times for layer N
   - optional encoder-step tone
+  - all event sounds configurable via RTTTL strings in `keymap_config.h`
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
   - inactivity auto-dim and auto-off
@@ -86,7 +87,8 @@ Edit `main/keymap_config.h`:
   - `MACRO_LED_KEY_BRIGHTNESS` (12 key LEDs group)
 - Buzzer constants (`MACRO_BUZZER_*`)
   - GPIO, duty cycle, queue size
-  - startup/key/layer/encoder tone behavior (including layer-beep gap)
+  - RTTTL melodies for startup/key/layer/encoder events
+  - per-note RTTTL gap tuning (`MACRO_BUZZER_RTTTL_NOTE_GAP_MS`)
 - OLED protection constants (`MACRO_OLED_*`)
   - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
 
@@ -111,6 +113,7 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - Hold-repeat only runs when enabled per-layer in `g_touch_layer_config`
 - Buzzer:
   - startup/key/layer/encoder feedback behavior is driven by `MACRO_BUZZER_*`
+  - event melodies use RTTTL strings (`name:d=,o=,b=:notes`)
   - tone playback is non-blocking and queued
 - OLED protection:
   - Pixel shift applies to all rendered content.

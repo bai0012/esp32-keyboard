@@ -61,6 +61,10 @@ Behavior/tuning reference:
 ### `esp_err_t buzzer_play_tone_ex(uint16_t frequency_hz, uint16_t duration_ms, uint16_t silence_ms);`
 - Queues a tone with a post-tone silence gap.
 
+### `esp_err_t buzzer_play_rtttl(const char *rtttl);`
+- Parses RTTTL and queues the resulting melody notes.
+- Returns parse/queue errors for invalid strings or full queue.
+
 ### `void buzzer_play_startup(void);`
 ### `void buzzer_play_keypress(void);`
 ### `void buzzer_play_layer_switch(uint8_t layer_index);`

@@ -51,6 +51,7 @@
   - layer-switch beeps N times for layer N
   - optional encoder-step tone
 - Event and tone parameters are configured via `MACRO_BUZZER_*` in `main/keymap_config.h`.
+- Event melodies are RTTTL strings; playback is parsed and queued at runtime.
 
 ## 8) OLED Screen Protection
 - Universal pixel shifting:

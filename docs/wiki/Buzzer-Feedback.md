@@ -24,51 +24,58 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_GPIO`
   - `MACRO_BUZZER_DUTY_PERCENT`
   - `MACRO_BUZZER_QUEUE_SIZE`
+  - `MACRO_BUZZER_RTTTL_NOTE_GAP_MS`
 - Startup:
   - `MACRO_BUZZER_STARTUP_ENABLED`
-  - startup melody is Mario intro (first few notes)
-  - `MACRO_BUZZER_STARTUP_TONE_MS`
-  - `MACRO_BUZZER_STARTUP_GAP_MS`
+  - `MACRO_BUZZER_RTTTL_STARTUP`
 - Key press:
   - `MACRO_BUZZER_KEYPRESS_ENABLED`
-  - `MACRO_BUZZER_KEYPRESS_FREQ_HZ`
-  - `MACRO_BUZZER_KEYPRESS_MS`
+  - `MACRO_BUZZER_RTTTL_KEYPRESS`
 - Layer switch:
   - `MACRO_BUZZER_LAYER_SWITCH_ENABLED`
-  - `MACRO_BUZZER_LAYER_BASE_FREQ_HZ`
-  - `MACRO_BUZZER_LAYER_STEP_HZ`
-  - `MACRO_BUZZER_LAYER_MS`
-  - `MACRO_BUZZER_LAYER_GAP_MS`
+  - `MACRO_BUZZER_RTTTL_LAYER1`
+  - `MACRO_BUZZER_RTTTL_LAYER2`
+  - `MACRO_BUZZER_RTTTL_LAYER3`
 - Encoder step:
   - `MACRO_BUZZER_ENCODER_STEP_ENABLED`
-  - `MACRO_BUZZER_ENCODER_CW_FREQ_HZ`
-  - `MACRO_BUZZER_ENCODER_CCW_FREQ_HZ`
-  - `MACRO_BUZZER_ENCODER_MS`
+  - `MACRO_BUZZER_RTTTL_ENCODER_CW`
+  - `MACRO_BUZZER_RTTTL_ENCODER_CCW`
 
-## 4) API Surface
+## 4) RTTTL Support
+- Event sounds are defined as RTTTL strings in config.
+- Supported syntax:
+  - `name:d=<default_duration>,o=<default_octave>,b=<bpm>:<notes>`
+  - notes: `c d e f g a b p`, optional `#`, optional dots `.`, optional octave digit
+  - `p` means pause/rest
+- Example:
+  - `MACRO_BUZZER_RTTTL_LAYER2 "l2:d=16,o=6,b=180:g,g"`
+
+## 5) API Surface
 - `buzzer_init()`
 - `buzzer_update(TickType_t now)`
 - `buzzer_stop()`
 - `buzzer_play_tone()`
 - `buzzer_play_tone_ex()`
+- `buzzer_play_rtttl()`
 - event helpers:
   - `buzzer_play_startup()`
   - `buzzer_play_keypress()`
   - `buzzer_play_layer_switch()`
   - `buzzer_play_encoder_step()`
 
-## 5) Tuning Guidance
+## 6) Tuning Guidance
 - Too loud/harsh:
   - lower `MACRO_BUZZER_DUTY_PERCENT`
-  - shorten event durations (`*_MS`)
+  - lower tempo (`b=`) or shorten notes in RTTTL strings
 - Sounds overlap under rapid input:
   - reduce enabled event types
   - increase `MACRO_BUZZER_QUEUE_SIZE` cautiously
+  - simplify RTTTL phrases
 - Want silent firmware:
   - set `MACRO_BUZZER_ENABLED` to `false`
 
-## 6) Validation Checklist
-1. Boot device and verify startup chirp (if enabled).
+## 7) Validation Checklist
+1. Boot device and verify startup RTTTL phrase.
 2. Press keys and verify click feedback.
 3. Switch layers via encoder multi-tap and verify layer N beeps exactly N times.
 4. Rotate encoder and verify optional step tone behavior.

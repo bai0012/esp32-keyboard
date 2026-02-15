@@ -11,6 +11,7 @@ void buzzer_stop(void);
 
 esp_err_t buzzer_play_tone(uint16_t frequency_hz, uint16_t duration_ms);
 esp_err_t buzzer_play_tone_ex(uint16_t frequency_hz, uint16_t duration_ms, uint16_t silence_ms);
+esp_err_t buzzer_play_rtttl(const char *rtttl);
 
 void buzzer_play_startup(void);
 void buzzer_play_keypress(void);
