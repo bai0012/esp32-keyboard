@@ -44,6 +44,7 @@
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
 #define LED_BRIGHTNESS 24
+#define LED_STATUS_DEBOUNCE_MS 120
 
 #define WIFI_CONNECTED_BIT BIT0
 
@@ -64,10 +65,19 @@ static TickType_t s_encoder_single_due_tick = 0;
 
 static pcnt_unit_handle_t s_pcnt_unit;
 static led_strip_handle_t s_led_strip;
+static uint8_t s_led_last_frame[LED_STRIP_COUNT][3];
+static bool s_led_frame_valid = false;
+static debounce_state_t s_usb_mounted_db;
+static debounce_state_t s_usb_hid_ready_db;
 
 static EventGroupHandle_t s_wifi_event_group;
 static bool s_sntp_started;
 static volatile TickType_t s_last_user_activity_tick = 0;
+
+static bool debounce_update(debounce_state_t *state,
+                            bool raw_pressed,
+                            TickType_t now,
+                            TickType_t debounce_ticks);
 
 static inline void mark_user_activity(TickType_t now)
 {
@@ -135,6 +145,11 @@ static esp_err_t update_key_leds(void)
         return ESP_OK;
     }
 
+    const TickType_t now = xTaskGetTickCount();
+    const TickType_t status_debounce_ticks = pdMS_TO_TICKS(LED_STATUS_DEBOUNCE_MS);
+    (void)debounce_update(&s_usb_mounted_db, tud_mounted(), now, status_debounce_ticks);
+    (void)debounce_update(&s_usb_hid_ready_db, tud_hid_ready(), now, status_debounce_ticks);
+
     const macro_rgb_t *layer_color = &g_layer_backlight_color[s_active_layer];
     const uint8_t layer_a_r = layer_color->r;
     const uint8_t layer_a_g = layer_color->g;
@@ -145,16 +160,21 @@ static esp_err_t update_key_leds(void)
     const uint8_t key_active_r = (uint8_t)(((uint16_t)layer_color->r * MACRO_LAYER_KEY_ACTIVE_SCALE) / 255U);
     const uint8_t key_active_g = (uint8_t)(((uint16_t)layer_color->g * MACRO_LAYER_KEY_ACTIVE_SCALE) / 255U);
     const uint8_t key_active_b = (uint8_t)(((uint16_t)layer_color->b * MACRO_LAYER_KEY_ACTIVE_SCALE) / 255U);
+    uint8_t frame[LED_STRIP_COUNT][3] = {0};
 
-    ESP_RETURN_ON_ERROR(led_strip_clear(s_led_strip), TAG, "led clear failed");
-
-    if (tud_mounted()) {
-        ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip, 0, dim(0), dim(40), dim(0)), TAG, "set led 0 failed");
+    if (s_usb_mounted_db.stable_level) {
+        frame[0][0] = dim(0);
+        frame[0][1] = dim(40);
+        frame[0][2] = dim(0);
     }
-    if (tud_hid_ready()) {
-        ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip, 1, dim(0), dim(0), dim(40)), TAG, "set led 1 failed");
+    if (s_usb_hid_ready_db.stable_level) {
+        frame[1][0] = dim(0);
+        frame[1][1] = dim(0);
+        frame[1][2] = dim(40);
     }
-    ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip, 2, dim(layer_a_r), dim(layer_a_g), dim(layer_a_b)), TAG, "set led 2 failed");
+    frame[2][0] = dim(layer_a_r);
+    frame[2][1] = dim(layer_a_g);
+    frame[2][2] = dim(layer_a_b);
 
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         const macro_action_config_t *cfg = active_key_cfg(i);
@@ -162,19 +182,34 @@ static esp_err_t update_key_leds(void)
             continue;
         }
 
-        ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip,
-                                                cfg->led_index,
-                                                dim(key_dim_r), dim(key_dim_g), dim(key_dim_b)),
-                            TAG, "set key led failed");
+        frame[cfg->led_index][0] = dim(key_dim_r);
+        frame[cfg->led_index][1] = dim(key_dim_g);
+        frame[cfg->led_index][2] = dim(key_dim_b);
 
         if (s_key_pressed[i]) {
-            ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip,
-                                                    cfg->led_index,
-                                                    dim(key_active_r), dim(key_active_g), dim(key_active_b)),
-                                TAG, "set key led active failed");
+            frame[cfg->led_index][0] = dim(key_active_r);
+            frame[cfg->led_index][1] = dim(key_active_g);
+            frame[cfg->led_index][2] = dim(key_active_b);
         }
     }
 
+    if (s_led_frame_valid && memcmp(frame, s_led_last_frame, sizeof(frame)) == 0) {
+        return ESP_OK;
+    }
+
+    for (size_t i = 0; i < LED_STRIP_COUNT; ++i) {
+        if (!s_led_frame_valid || memcmp(frame[i], s_led_last_frame[i], sizeof(frame[i])) != 0) {
+            ESP_RETURN_ON_ERROR(led_strip_set_pixel(s_led_strip,
+                                                    i,
+                                                    frame[i][0],
+                                                    frame[i][1],
+                                                    frame[i][2]),
+                                TAG, "set led %u failed", (unsigned)i);
+        }
+    }
+
+    memcpy(s_led_last_frame, frame, sizeof(frame));
+    s_led_frame_valid = true;
     return led_strip_refresh(s_led_strip);
 }
 
@@ -356,6 +391,18 @@ static esp_err_t init_led_strip(void)
         .flags.with_dma = false,
     };
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_led_strip));
+
+    const TickType_t now = xTaskGetTickCount();
+    const bool mounted = tud_mounted();
+    const bool hid_ready = tud_hid_ready();
+    s_usb_mounted_db.stable_level = mounted;
+    s_usb_mounted_db.last_raw = mounted;
+    s_usb_mounted_db.last_transition_tick = now;
+    s_usb_hid_ready_db.stable_level = hid_ready;
+    s_usb_hid_ready_db.last_raw = hid_ready;
+    s_usb_hid_ready_db.last_transition_tick = now;
+    s_led_frame_valid = false;
+
     return update_key_leds();
 }
 

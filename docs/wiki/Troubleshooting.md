@@ -34,3 +34,9 @@
   - tune `MACRO_OLED_SHIFT_RANGE_PX`.
 - Full OLED behavior reference:
   - [OLED Display](OLED-Display)
+
+## 7) RGB LED Flicker
+- Verify board power quality and ground integrity for the LED chain.
+- Keep data line short and well-referenced to ground.
+- Confirm firmware includes change-driven LED refresh and indicator debounce logic.
+- If needed, reduce global LED intensity (`LED_BRIGHTNESS` in `main/main.c`) to reduce supply ripple.

@@ -18,6 +18,7 @@ Hardware reference is documented in `hardware_info.md`.
 - Touch slide direction detection (`R->L` / `L->R`)
 - Optional touch hold-repeat (used for volume on layer 2 by default)
 - RGB layer/status feedback
+  - software anti-flicker update path (change-driven LED refresh + USB status debounce)
 - OLED digital clock with SNTP sync indicator
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
