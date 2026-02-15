@@ -5,10 +5,10 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 ## Project Summary
 - Firmware target: `ESP32-S3`
 - Input devices: 12 keys, EC11 encoder button/rotation, 2-channel touch slider
-- Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED clock
-- Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED clock, passive buzzer
+- Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED display, passive buzzer
 - Optional network: Wi-Fi SNTP time sync
 - OLED protection: pixel shift, inactivity dim/off, hourly inversion
+- OLED animation pipeline: build-time conversion from `assets/animations/*` to generated C assets
 
 ## Wiki Pages
 1. [Architecture](Architecture)

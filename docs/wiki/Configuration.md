@@ -122,3 +122,27 @@ If SSID is empty, Wi-Fi and SNTP are disabled.
 - [OLED Display](OLED-Display)
 - [Buzzer Feedback](Buzzer-Feedback)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
+
+## 6) OLED Animation Asset Config
+These are file-based assets (not in `keymap_config.yaml`):
+- `assets/animations/manifest.yaml`
+- `assets/animations/<name>/frame_xxx.png`
+
+`manifest.yaml` example:
+
+```yaml
+schema_version: 1
+animations:
+  boot:
+    width: 128
+    height: 64
+    bit_packed: true
+    invert: false
+    frame_interval_ms: 110
+    frames:
+      - boot/frame_000.pbm
+      - boot/frame_001.pbm
+```
+
+Build-generated output:
+- `main/oled_animation_assets.h`

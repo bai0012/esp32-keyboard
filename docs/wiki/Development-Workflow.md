@@ -6,14 +6,16 @@
 3. Expose minimal public API in headers.
 4. Update `config/keymap_config.yaml` if behavior is intended to be configurable.
 5. Regenerate `main/keymap_config.h` (automatic during build, or manually via generator script).
-6. Build and run target behavior tests.
-7. Update documentation pages (mandatory).
+6. For OLED animations, update `assets/animations/manifest.yaml` and frame files.
+7. Build and run target behavior tests.
+8. Update documentation pages (mandatory).
 
 ## 2) Module Ownership Guidance
 - Input orchestration and task lifecycle: `main/main.c`
 - HID protocol/report behavior: `main/macropad_hid.*`
 - Touch gesture/hold logic: `main/touch_slider.*`
 - OLED rendering logic: `main/oled.*`
+- OLED animation assets/generator: `assets/animations/*`, `tools/generate_oled_animation_header.py`
 
 ## 3) Validation Checklist
 - [ ] `idf.py build` passes

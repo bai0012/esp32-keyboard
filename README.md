@@ -22,6 +22,7 @@ Hardware reference is documented in `hardware_info.md`.
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
 - OLED subsystem with clock scene, framebuffer primitives, and UTF-8 text entry points
 - Pluggable glyph-font interface for future multilingual rendering (including Chinese/CJK glyph packs)
+- Build-time OLED animation asset pipeline for boot/menu scenes (`assets/animations`)
 - Passive buzzer feedback:
   - startup melody via RTTTL
   - key-press click
@@ -47,8 +48,10 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
 - `main/oled.c`: OLED core driver, framebuffer primitives, UTF-8 text path, and clock scene renderer
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
+- `assets/animations/`: source images + manifest for OLED animations
 - `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
+- `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
 - `main/Kconfig.projbuild`: Wi-Fi, NTP, timezone config entries
 - `partitions_8mb_ota.csv`: custom 8MB partition layout (2 OTA + cfgstore)
@@ -133,6 +136,13 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - synced: top-right marker
   - unsynced: bottom marker
 - Rendering module is generalized for future text/bitmap/animation scenes (`main/oled.c`).
+- Boot animation frames are loaded from generated assets (`main/oled_animation_assets.h`) at startup.
+
+### 4) Animation assets
+- Edit `assets/animations/manifest.yaml` to define animation frame order/timing.
+- Put source frames in `assets/animations/<animation_name>/`.
+- Supported source formats: `.pbm` (native, no extra deps), plus `.png`, `.bmp`, `.jpg`, `.jpeg` when Pillow is installed.
+- Build will auto-generate `main/oled_animation_assets.h`.
 
 ### 2) Burn-in protection
 - Universal pixel shift:

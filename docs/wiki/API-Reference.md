@@ -60,6 +60,10 @@
 ### `esp_err_t oled_present(void);`
 - Flushes framebuffer to panel.
 
+### `esp_err_t oled_render_animation_frame_centered(const oled_animation_t *anim, uint16_t frame_index, int8_t shift_x, int8_t shift_y);`
+- Renders one animation frame centered on panel using packed bitmap assets.
+- Validates frame index/pointers and returns error on invalid metadata.
+
 ### Scene helper
 
 ### `esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);`

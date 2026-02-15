@@ -27,6 +27,19 @@ typedef struct {
     uint8_t line_height;
 } oled_font_t;
 
+typedef struct {
+    const uint8_t *bitmap;
+    uint16_t duration_ms;
+} oled_animation_frame_t;
+
+typedef struct {
+    uint8_t width;
+    uint8_t height;
+    bool bit_packed;
+    uint16_t frame_count;
+    const oled_animation_frame_t *frames;
+} oled_animation_t;
+
 esp_err_t oled_init(void);
 esp_err_t oled_set_brightness_percent(uint8_t percent);
 esp_err_t oled_set_display_enabled(bool enabled);
@@ -38,6 +51,11 @@ void oled_fill_rect(int x, int y, int w, int h, bool on);
 void oled_draw_bitmap_mono(int x, int y, int w, int h, const uint8_t *bitmap, bool bit_packed);
 esp_err_t oled_draw_text_utf8(int x, int y, const char *utf8, const oled_font_t *font);
 esp_err_t oled_present(void);
+
+esp_err_t oled_render_animation_frame_centered(const oled_animation_t *anim,
+                                               uint16_t frame_index,
+                                               int8_t shift_x,
+                                               int8_t shift_y);
 
 // Current app-level convenience renderer (clock + sync marker).
 esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);

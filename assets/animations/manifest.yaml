@@ -1,0 +1,12 @@
+schema_version: 1
+
+animations:
+  boot:
+    width: 128
+    height: 64
+    bit_packed: true
+    invert: false
+    frame_interval_ms: 110
+    frames:
+      - boot/frame_000.pbm
+      - boot/frame_001.pbm

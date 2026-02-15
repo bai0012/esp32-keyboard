@@ -26,7 +26,11 @@
   - I2C OLED init and command path
   - Framebuffer primitives
   - UTF-8 text draw path with pluggable font callback
+  - Centered animation-frame render API
   - 7-segment style clock render scene (`oled_render_clock`)
+- `assets/animations/*` + `tools/generate_oled_animation_header.py`
+  - Build-time conversion of image frames into packed monochrome bitmaps
+  - Generated header: `main/oled_animation_assets.h`
 - `main/buzzer.c`
   - Passive buzzer (LEDC PWM) initialization
   - Non-blocking tone queue

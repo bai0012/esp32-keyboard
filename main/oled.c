@@ -237,6 +237,31 @@ esp_err_t oled_present(void)
     return ESP_OK;
 }
 
+esp_err_t oled_render_animation_frame_centered(const oled_animation_t *anim,
+                                               uint16_t frame_index,
+                                               int8_t shift_x,
+                                               int8_t shift_y)
+{
+    if (anim == NULL || anim->frames == NULL || anim->frame_count == 0U) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (frame_index >= anim->frame_count) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const oled_animation_frame_t *frame = &anim->frames[frame_index];
+    if (frame->bitmap == NULL || anim->width == 0U || anim->height == 0U) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const int x = ((OLED_WIDTH - (int)anim->width) / 2) + (int)shift_x;
+    const int y = ((OLED_HEIGHT - (int)anim->height) / 2) + (int)shift_y;
+
+    oled_clear_buffer();
+    oled_draw_bitmap_mono(x, y, anim->width, anim->height, frame->bitmap, anim->bit_packed);
+    return oled_present();
+}
+
 enum {
     SEG_A = 1 << 0,
     SEG_B = 1 << 1,

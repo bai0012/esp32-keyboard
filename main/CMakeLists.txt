@@ -13,10 +13,19 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     set(KEYMAP_CONFIG_YAML "${CMAKE_CURRENT_LIST_DIR}/../config/keymap_config.yaml")
     set(KEYMAP_CONFIG_GENERATOR "${CMAKE_CURRENT_LIST_DIR}/../tools/generate_keymap_header.py")
     set(KEYMAP_CONFIG_HEADER "${CMAKE_CURRENT_LIST_DIR}/keymap_config.h")
+    set(OLED_ANIM_ASSET_DIR "${CMAKE_CURRENT_LIST_DIR}/../assets/animations")
+    set(OLED_ANIM_MANIFEST "${OLED_ANIM_ASSET_DIR}/manifest.yaml")
+    set(OLED_ANIM_GENERATOR "${CMAKE_CURRENT_LIST_DIR}/../tools/generate_oled_animation_header.py")
+    set(OLED_ANIM_HEADER "${CMAKE_CURRENT_LIST_DIR}/oled_animation_assets.h")
+    file(GLOB_RECURSE OLED_ANIM_INPUTS CONFIGURE_DEPENDS
+        "${OLED_ANIM_ASSET_DIR}/*"
+    )
 
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${KEYMAP_CONFIG_YAML}"
         "${KEYMAP_CONFIG_GENERATOR}"
+        "${OLED_ANIM_MANIFEST}"
+        "${OLED_ANIM_GENERATOR}"
     )
 
     if(DEFINED PYTHON)
@@ -34,6 +43,19 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         VERBATIM
     )
 
+    add_custom_command(
+        OUTPUT "${OLED_ANIM_HEADER}"
+        COMMAND "${KEYMAP_PYTHON}" "${OLED_ANIM_GENERATOR}"
+            --manifest "${OLED_ANIM_MANIFEST}"
+            --assets-root "${OLED_ANIM_ASSET_DIR}"
+            --out "${OLED_ANIM_HEADER}"
+        DEPENDS "${OLED_ANIM_GENERATOR}" "${OLED_ANIM_MANIFEST}" ${OLED_ANIM_INPUTS}
+        COMMENT "Generating oled_animation_assets.h from assets/animations"
+        VERBATIM
+    )
+
     add_custom_target(generate_keymap_config_header DEPENDS "${KEYMAP_CONFIG_HEADER}")
+    add_custom_target(generate_oled_animation_assets DEPENDS "${OLED_ANIM_HEADER}")
     add_dependencies(${COMPONENT_LIB} generate_keymap_config_header)
+    add_dependencies(${COMPONENT_LIB} generate_oled_animation_assets)
 endif()

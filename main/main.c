@@ -29,6 +29,7 @@
 #include "buzzer.h"
 #include "macropad_hid.h"
 #include "oled.h"
+#include "oled_animation_assets.h"
 #include "touch_slider.h"
 
 #define TAG "MACROPAD"
@@ -45,6 +46,10 @@
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
 #define LED_STATUS_DEBOUNCE_MS 120
+#define BOOT_ANIMATION_MAX_FRAMES 240
+#define BOOT_ANIMATION_MAX_TOTAL_MS 8000
+#define BOOT_ANIMATION_MIN_FRAME_MS 20
+#define BOOT_ANIMATION_MAX_FRAME_MS 1000
 
 #define WIFI_CONNECTED_BIT BIT0
 
@@ -82,6 +87,42 @@ static bool debounce_update(debounce_state_t *state,
 static inline void mark_user_activity(TickType_t now)
 {
     s_last_user_activity_tick = now;
+}
+
+static void play_boot_animation(void)
+{
+    if (g_oled_boot_animation.frame_count == 0U || g_oled_boot_animation.frames == NULL) {
+        ESP_LOGW(TAG, "Boot animation missing/empty, skip");
+        return;
+    }
+
+    const uint16_t frame_count = (g_oled_boot_animation.frame_count > BOOT_ANIMATION_MAX_FRAMES)
+        ? BOOT_ANIMATION_MAX_FRAMES
+        : g_oled_boot_animation.frame_count;
+
+    uint32_t elapsed_ms = 0U;
+    for (uint16_t i = 0; i < frame_count; ++i) {
+        esp_err_t err = oled_render_animation_frame_centered(&g_oled_boot_animation, i, 0, 0);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Boot animation frame %u failed: %s", (unsigned)i, esp_err_to_name(err));
+            break;
+        }
+
+        uint16_t frame_ms = g_oled_boot_animation.frames[i].duration_ms;
+        if (frame_ms < BOOT_ANIMATION_MIN_FRAME_MS) {
+            frame_ms = BOOT_ANIMATION_MIN_FRAME_MS;
+        } else if (frame_ms > BOOT_ANIMATION_MAX_FRAME_MS) {
+            frame_ms = BOOT_ANIMATION_MAX_FRAME_MS;
+        }
+
+        if ((elapsed_ms + frame_ms) > BOOT_ANIMATION_MAX_TOTAL_MS) {
+            ESP_LOGW(TAG, "Boot animation stopped at %u ms safety limit", (unsigned)elapsed_ms);
+            break;
+        }
+
+        elapsed_ms += frame_ms;
+        vTaskDelay(pdMS_TO_TICKS(frame_ms));
+    }
 }
 
 static int8_t random_shift_px(int8_t range)
@@ -667,6 +708,7 @@ void app_main(void)
     buzzer_play_startup();
     ESP_ERROR_CHECK(oled_init());
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
+    play_boot_animation();
     ESP_ERROR_CHECK(macropad_usb_init());
     ESP_ERROR_CHECK(init_wifi_and_sntp());
 
