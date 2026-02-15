@@ -10,15 +10,15 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - OLED protection: pixel shift, inactivity dim/off, hourly inversion
 
 ## Wiki Pages
-1. [Architecture](Architecture.md)
-2. [Build and Flash](Build-and-Flash.md)
-3. [Configuration](Configuration.md)
-4. [Runtime Behavior](Runtime-Behavior.md)
-5. [Touch Slider Algorithm](Touch-Slider-Algorithm.md)
-6. [API Reference](API-Reference.md)
-7. [Development Workflow](Development-Workflow.md)
-8. [Troubleshooting](Troubleshooting.md)
-9. [Documentation Policy](Documentation-Policy.md)
+1. [Architecture](Architecture)
+2. [Build and Flash](Build-and-Flash)
+3. [Configuration](Configuration)
+4. [Runtime Behavior](Runtime-Behavior)
+5. [Touch Slider Algorithm](Touch-Slider-Algorithm)
+6. [API Reference](API-Reference)
+7. [Development Workflow](Development-Workflow)
+8. [Troubleshooting](Troubleshooting)
+9. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP

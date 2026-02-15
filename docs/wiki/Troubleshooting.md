@@ -2,7 +2,7 @@
 
 ## 1) Build Issues
 - Symptom: build fails due to missing IDF env
-  - Action: run the init command from [Build and Flash](Build-and-Flash.md).
+  - Action: run the init command from [Build and Flash](Build-and-Flash).
 
 ## 2) USB/HID Not Working
 - Check logs for mount/ready state.
