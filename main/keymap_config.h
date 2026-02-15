@@ -144,6 +144,18 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_ENCODER_TAP_WINDOW_MS 350
 #define MACRO_ENCODER_SINGLE_TAP_DELAY_MS 120
 
+/*
+ * OLED screen-protection settings.
+ * - Brightness values are in percent (0..100).
+ * - Inactivity timeouts are in seconds.
+ */
+#define MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT 70
+#define MACRO_OLED_DIM_BRIGHTNESS_PERCENT 15
+#define MACRO_OLED_DIM_TIMEOUT_SEC 45
+#define MACRO_OLED_OFF_TIMEOUT_SEC 180
+#define MACRO_OLED_SHIFT_RANGE_PX 2
+#define MACRO_OLED_SHIFT_INTERVAL_SEC 60
+
 // Touch active threshold = baseline * percent / 100
 #define MACRO_TOUCH_TRIGGER_PERCENT 85
 // Touch release threshold = baseline * percent / 100 (should be > trigger threshold)

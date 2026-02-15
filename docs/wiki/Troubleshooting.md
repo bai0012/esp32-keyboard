@@ -25,3 +25,10 @@
 - Confirm network reachability to NTP server.
 - Validate timezone string in `MACROPAD_TZ`.
 - Remember: empty SSID intentionally disables SNTP.
+
+## 6) OLED Protection Behavior Not as Expected
+- Verify `MACRO_OLED_*` constants in `main/keymap_config.h`.
+- If screen turns off too early/late:
+  - tune `MACRO_OLED_DIM_TIMEOUT_SEC` and `MACRO_OLED_OFF_TIMEOUT_SEC`.
+- If movement appears too large/small:
+  - tune `MACRO_OLED_SHIFT_RANGE_PX`.

@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_sntp.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 
@@ -66,6 +67,35 @@ static led_strip_handle_t s_led_strip;
 
 static EventGroupHandle_t s_wifi_event_group;
 static bool s_sntp_started;
+static volatile TickType_t s_last_user_activity_tick = 0;
+
+static inline void mark_user_activity(TickType_t now)
+{
+    s_last_user_activity_tick = now;
+}
+
+static int8_t random_shift_px(int8_t range)
+{
+    if (range <= 0) {
+        return 0;
+    }
+    const uint32_t span = (uint32_t)((range * 2) + 1);
+    return (int8_t)((int32_t)(esp_random() % span) - range);
+}
+
+static bool is_time_synchronized(const struct tm *timeinfo)
+{
+    /* SNTP-unsynced localtime is typically 1970; gate hourly inversion until real time is available. */
+    return timeinfo->tm_year >= (2020 - 1900);
+}
+
+static void send_consumer_report_with_activity(uint16_t usage)
+{
+    if (usage != 0) {
+        mark_user_activity(xTaskGetTickCount());
+    }
+    macropad_send_consumer_report(usage);
+}
 
 static inline const macro_action_config_t *scan_key_cfg(size_t idx)
 {
@@ -347,6 +377,9 @@ static void input_task(void *arg)
             const bool raw_pressed = is_pressed(scan_cfg);
             if (debounce_update(&s_key_db[i], raw_pressed, now, debounce_ticks)) {
                 s_key_pressed[i] = s_key_db[i].stable_level;
+                if (s_key_pressed[i]) {
+                    mark_user_activity(now);
+                }
 
                 ESP_LOGI(TAG, "L%u Key[%u:%s] %s (gpio=%d type=%d usage=0x%X)",
                          (unsigned)s_active_layer + 1,
@@ -360,7 +393,7 @@ static void input_task(void *arg)
                 if (active_cfg->type == MACRO_ACTION_KEYBOARD) {
                     keyboard_state_changed = true;
                 } else if (active_cfg->type == MACRO_ACTION_CONSUMER && s_key_pressed[i]) {
-                    macropad_send_consumer_report(active_cfg->usage);
+                    send_consumer_report_with_activity(active_cfg->usage);
                 }
             }
         }
@@ -369,11 +402,12 @@ static void input_task(void *arg)
             macropad_send_keyboard_report(s_key_pressed, s_active_layer);
         }
 
-        touch_slider_update(now, s_active_layer, macropad_send_consumer_report);
+        touch_slider_update(now, s_active_layer, send_consumer_report_with_activity);
 
         const int enc_level = gpio_get_level(EC11_GPIO_BUTTON);
         const bool enc_btn_raw = MACRO_ENCODER_BUTTON_ACTIVE_LOW ? (enc_level == 0) : (enc_level != 0);
         if (debounce_update(&s_encoder_btn_db, enc_btn_raw, now, debounce_ticks) && s_encoder_btn_db.stable_level) {
+            mark_user_activity(now);
             if (s_encoder_single_pending) {
                 s_encoder_single_pending = false;
             }
@@ -410,7 +444,7 @@ static void input_task(void *arg)
             s_encoder_single_pending = false;
             const uint16_t usage = g_encoder_layer_config[s_active_layer].button_single_usage;
             ESP_LOGI(TAG, "Encoder single tap (L%u) -> usage=0x%X", (unsigned)s_active_layer + 1, usage);
-            macropad_send_consumer_report(usage);
+            send_consumer_report_with_activity(usage);
         }
 
         int pulse_count = 0;
@@ -418,6 +452,7 @@ static void input_task(void *arg)
 
         const int steps = pulse_count / ENCODER_DETENT_PULSES;
         if (steps != 0) {
+            mark_user_activity(now);
             ESP_ERROR_CHECK(pcnt_unit_clear_count(s_pcnt_unit));
 
             const uint16_t usage = (steps > 0) ?
@@ -427,7 +462,7 @@ static void input_task(void *arg)
             ESP_LOGI(TAG, "Encoder steps=%d (L%u) usage=0x%X", steps, (unsigned)s_active_layer + 1, usage);
 
             for (int i = 0; i < abs(steps); ++i) {
-                macropad_send_consumer_report(usage);
+                send_consumer_report_with_activity(usage);
             }
         }
 
@@ -453,16 +488,86 @@ static void display_task(void *arg)
 {
     (void)arg;
 
+    const TickType_t dim_timeout_ticks = pdMS_TO_TICKS((uint32_t)MACRO_OLED_DIM_TIMEOUT_SEC * 1000U);
+    const TickType_t off_timeout_ticks = pdMS_TO_TICKS((uint32_t)MACRO_OLED_OFF_TIMEOUT_SEC * 1000U);
+    const uint8_t normal_brightness = MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT;
+    const uint8_t dim_brightness = MACRO_OLED_DIM_BRIGHTNESS_PERCENT;
+    const int8_t shift_range = (int8_t)MACRO_OLED_SHIFT_RANGE_PX;
+    const int shift_interval_sec = (MACRO_OLED_SHIFT_INTERVAL_SEC > 0) ? MACRO_OLED_SHIFT_INTERVAL_SEC : 60;
+
+    bool display_enabled = true;
+    bool display_dimmed = false;
+    bool display_inverted = false;
+    int8_t shift_x = 0;
+    int8_t shift_y = 0;
+    int last_shift_bucket = -1;
+    int last_invert_hour = -1;
+
     while (1) {
+        const TickType_t tick_now = xTaskGetTickCount();
+        const TickType_t idle_ticks = tick_now - s_last_user_activity_tick;
+        const bool should_off = (off_timeout_ticks > 0) && (idle_ticks >= off_timeout_ticks);
+        const bool should_dim = !should_off && (dim_timeout_ticks > 0) && (idle_ticks >= dim_timeout_ticks);
+
+        if (should_off != !display_enabled) {
+            if (oled_clock_set_display_enabled(!should_off) == ESP_OK) {
+                display_enabled = !should_off;
+            }
+        }
+
+        if (!should_off) {
+            const bool want_dim = should_dim;
+            if (want_dim != display_dimmed) {
+                const uint8_t target = want_dim ? dim_brightness : normal_brightness;
+                if (oled_clock_set_brightness_percent(target) == ESP_OK) {
+                    display_dimmed = want_dim;
+                }
+            }
+        }
+
         time_t now = 0;
         struct tm timeinfo = {0};
 
         time(&now);
         localtime_r(&now, &timeinfo);
 
-        esp_err_t err = oled_clock_render(&timeinfo);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "OLED render failed: %s", esp_err_to_name(err));
+        if (is_time_synchronized(&timeinfo)) {
+            const int hour_key = (timeinfo.tm_yday * 24) + timeinfo.tm_hour;
+            if (last_invert_hour < 0) {
+                /* First synced sample: establish baseline without toggling inversion state. */
+                last_invert_hour = hour_key;
+            } else if (hour_key != last_invert_hour) {
+                display_inverted = !display_inverted;
+                esp_err_t inv_err = oled_clock_set_inverted(display_inverted);
+                if (inv_err != ESP_OK) {
+                    ESP_LOGE(TAG, "OLED invert change failed: %s", esp_err_to_name(inv_err));
+                }
+                last_invert_hour = hour_key;
+            }
+        } else {
+            /* Keep normal polarity before sync so first SNTP correction does not invert unexpectedly. */
+            if (display_inverted) {
+                if (oled_clock_set_inverted(false) == ESP_OK) {
+                    display_inverted = false;
+                }
+            }
+            last_invert_hour = -1;
+        }
+
+        const int shift_bucket =
+            ((timeinfo.tm_yday * 24 * 3600) + (timeinfo.tm_hour * 3600) + (timeinfo.tm_min * 60) + timeinfo.tm_sec) /
+            shift_interval_sec;
+        if (shift_bucket != last_shift_bucket) {
+            shift_x = random_shift_px(shift_range);
+            shift_y = random_shift_px(shift_range);
+            last_shift_bucket = shift_bucket;
+        }
+
+        if (display_enabled) {
+            esp_err_t err = oled_clock_render(&timeinfo, shift_x, shift_y);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "OLED render failed: %s", esp_err_to_name(err));
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -483,12 +588,14 @@ void app_main(void)
 
     s_wifi_event_group = xEventGroupCreate();
     configASSERT(s_wifi_event_group != NULL);
+    s_last_user_activity_tick = xTaskGetTickCount();
 
     ESP_ERROR_CHECK(init_keys());
     ESP_ERROR_CHECK(touch_slider_init());
     ESP_ERROR_CHECK(init_encoder());
     ESP_ERROR_CHECK(init_led_strip());
     ESP_ERROR_CHECK(oled_clock_init());
+    ESP_ERROR_CHECK(oled_clock_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     ESP_ERROR_CHECK(macropad_usb_init());
     ESP_ERROR_CHECK(init_wifi_and_sntp());
 

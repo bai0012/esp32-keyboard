@@ -7,6 +7,7 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - Input devices: 12 keys, EC11 encoder button/rotation, 2-channel touch slider
 - Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED clock
 - Optional network: Wi-Fi SNTP time sync
+- OLED protection: pixel shift, inactivity dim/off, hourly inversion
 
 ## Wiki Pages
 1. [Architecture](Architecture.md)

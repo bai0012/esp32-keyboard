@@ -28,5 +28,14 @@
 ### `esp_err_t oled_clock_init(void);`
 - Initializes I2C bus/device and OLED controller.
 
-### `esp_err_t oled_clock_render(const struct tm *timeinfo);`
-- Renders the current time into the framebuffer and flushes it.
+### `esp_err_t oled_clock_render(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);`
+- Renders the current time using caller-provided pixel-shift offsets.
+
+### `esp_err_t oled_clock_set_brightness_percent(uint8_t percent);`
+- Sets OLED contrast as a brightness percentage (`0..100`).
+
+### `esp_err_t oled_clock_set_display_enabled(bool enabled);`
+- Powers OLED panel on/off (`on` = wake, `off` = screen off).
+
+### `esp_err_t oled_clock_set_inverted(bool inverted);`
+- Toggles OLED display inversion mode (`normal`/`inverse`).

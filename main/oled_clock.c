@@ -21,11 +21,22 @@
 static i2c_master_bus_handle_t s_i2c_bus;
 static i2c_master_dev_handle_t s_oled_dev;
 static uint8_t s_oled_fb[OLED_WIDTH * OLED_HEIGHT / 8];
+static bool s_display_enabled = true;
+static bool s_inverted = false;
+static uint8_t s_brightness_percent = 100;
 
 static esp_err_t oled_send_cmd(uint8_t cmd)
 {
     uint8_t payload[2] = {0x00, cmd};
     return i2c_master_transmit(s_oled_dev, payload, sizeof(payload), -1);
+}
+
+static inline uint8_t oled_percent_to_contrast(uint8_t percent)
+{
+    if (percent >= 100U) {
+        return 0xFF;
+    }
+    return (uint8_t)(((uint16_t)percent * 255U) / 100U);
 }
 
 static esp_err_t oled_send_page(uint8_t page, const uint8_t *data)
@@ -143,7 +154,7 @@ static esp_err_t oled_flush(void)
     return ESP_OK;
 }
 
-static void oled_draw_clock(const struct tm *timeinfo)
+static void oled_draw_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y)
 {
     const int scale = 2;
     const int t = scale;
@@ -154,8 +165,8 @@ static void oled_draw_clock(const struct tm *timeinfo)
     const int gap = 2;
     const int total_w = (6 * digit_w) + (2 * colon_w) + (7 * gap);
 
-    int x = (OLED_WIDTH - total_w) / 2;
-    const int y = (OLED_HEIGHT - digit_h) / 2;
+    int x = ((OLED_WIDTH - total_w) / 2) + (int)shift_x;
+    const int y = ((OLED_HEIGHT - digit_h) / 2) + (int)shift_y;
 
     int digits[6] = {
         timeinfo->tm_hour / 10,
@@ -180,9 +191,9 @@ static void oled_draw_clock(const struct tm *timeinfo)
 
     const bool synced = (timeinfo->tm_year >= (2024 - 1900));
     if (synced) {
-        oled_fill_rect(OLED_WIDTH - 6, 2, 4, 4, true);
+        oled_fill_rect((OLED_WIDTH - 6) + (int)shift_x, 2 + (int)shift_y, 4, 4, true);
     } else {
-        oled_fill_rect(2, OLED_HEIGHT - 4, OLED_WIDTH - 4, 2, true);
+        oled_fill_rect(2 + (int)shift_x, (OLED_HEIGHT - 4) + (int)shift_y, OLED_WIDTH - 4, 2, true);
     }
 }
 
@@ -217,16 +228,46 @@ esp_err_t oled_clock_init(void)
     }
 
     oled_clear_buffer();
-    return oled_flush();
+    ESP_RETURN_ON_ERROR(oled_flush(), TAG, "oled initial flush failed");
+    return oled_clock_set_brightness_percent(100U);
 }
 
-esp_err_t oled_clock_render(const struct tm *timeinfo)
+esp_err_t oled_clock_set_brightness_percent(uint8_t percent)
+{
+    if (percent > 100U) {
+        percent = 100U;
+    }
+    const uint8_t contrast = oled_percent_to_contrast(percent);
+    ESP_RETURN_ON_ERROR(oled_send_cmd(0x81), TAG, "set contrast cmd failed");
+    ESP_RETURN_ON_ERROR(oled_send_cmd(contrast), TAG, "set contrast value failed");
+    s_brightness_percent = percent;
+    return ESP_OK;
+}
+
+esp_err_t oled_clock_set_display_enabled(bool enabled)
+{
+    ESP_RETURN_ON_ERROR(oled_send_cmd(enabled ? 0xAF : 0xAE), TAG, "set display power failed");
+    s_display_enabled = enabled;
+    return ESP_OK;
+}
+
+esp_err_t oled_clock_set_inverted(bool inverted)
+{
+    ESP_RETURN_ON_ERROR(oled_send_cmd(inverted ? 0xA7 : 0xA6), TAG, "set display invert failed");
+    s_inverted = inverted;
+    return ESP_OK;
+}
+
+esp_err_t oled_clock_render(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y)
 {
     if (timeinfo == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    (void)s_display_enabled;
+    (void)s_inverted;
+    (void)s_brightness_percent;
 
     oled_clear_buffer();
-    oled_draw_clock(timeinfo);
+    oled_draw_clock(timeinfo, shift_x, shift_y);
     return oled_flush();
 }

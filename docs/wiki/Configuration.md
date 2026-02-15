@@ -9,6 +9,7 @@ This file controls:
 - touch mappings per layer
 - layer backlight colors
 - touch algorithm tuning constants
+- OLED protection and brightness constants
 
 ## 2) Key Mappings
 - Table: `g_macro_keymap_layers[MACRO_LAYER_COUNT][MACRO_KEY_COUNT]`
@@ -43,3 +44,12 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_TZ`
 
 If SSID is empty, Wi-Fi and SNTP are disabled.
+
+## 6) OLED Protection Settings
+Defined in `main/keymap_config.h`:
+- `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`
+- `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`
+- `MACRO_OLED_DIM_TIMEOUT_SEC`
+- `MACRO_OLED_OFF_TIMEOUT_SEC`
+- `MACRO_OLED_SHIFT_RANGE_PX`
+- `MACRO_OLED_SHIFT_INTERVAL_SEC`

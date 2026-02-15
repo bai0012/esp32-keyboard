@@ -36,3 +36,17 @@
 - Sync marker behavior:
   - synced: top-right indicator
   - unsynced: bottom bar indicator
+
+## 7) OLED Screen Protection
+- Universal pixel shifting:
+  - All rendered clock content (including static markers) is shifted together.
+  - Shift is randomized in the configured range (default `+/-2 px`) every configured interval (default 60s).
+- Inactivity handling:
+  - Screen dims after `MACRO_OLED_DIM_TIMEOUT_SEC`.
+  - Screen turns off after `MACRO_OLED_OFF_TIMEOUT_SEC`.
+  - Any user input activity restores screen and normal brightness.
+- Hourly inversion:
+  - Display inversion state toggles each hour to distribute pixel wear.
+  - Inversion timing starts only after SNTP/local time is considered valid, so pre-sync boot time does not trigger a false inversion.
+- Brightness:
+  - Default brightness is configurable (`MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`, default 70%).

@@ -12,6 +12,7 @@
   - GPIO and PCNT setup
   - Key debounce and action routing
   - Layer switching and LED feedback
+  - OLED protection policy control (shift/dim/off/invert timing)
   - Wi-Fi + SNTP init
 - `main/macropad_hid.c`
   - TinyUSB descriptor and callback setup

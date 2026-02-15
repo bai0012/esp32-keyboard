@@ -19,6 +19,11 @@ Hardware reference is documented in `hardware_info.md`.
 - Optional touch hold-repeat (used for volume on layer 2 by default)
 - RGB layer/status feedback
 - OLED digital clock with SNTP sync indicator
+- OLED burn-in protection:
+  - random pixel shift (default every 60s, +/-2 px)
+  - inactivity auto-dim and auto-off
+  - hourly full-screen inversion toggle (starts after SNTP time is valid)
+  - configurable default brightness (default 70%)
 
 ## Repository Layout
 - `main/main.c`: app orchestration, input scan loop, task startup
@@ -55,6 +60,7 @@ Edit `main/keymap_config.h`:
 - `g_encoder_layer_config`
 - `g_touch_layer_config`
 - Touch tuning constants (`MACRO_TOUCH_*`)
+- OLED protection constants (`MACRO_OLED_*`)
 
 ### 2) Wi-Fi + SNTP + timezone
 Set via `idf.py menuconfig` under `MacroPad Configuration`:
@@ -75,6 +81,9 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - `R->L` triggers `left_usage`
   - `L->R` triggers `right_usage`
   - Hold-repeat only runs when enabled per-layer in `g_touch_layer_config`
+- OLED protection:
+  - Pixel shift applies to all rendered content.
+  - Any user input activity restores normal brightness and screen-on state.
 
 ## Developer Docs
 - Wiki home: `docs/wiki/Home.md`
