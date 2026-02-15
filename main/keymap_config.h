@@ -138,7 +138,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_NOTE_GAP_MS 8
 
 #define MACRO_BUZZER_STARTUP_ENABLED true
-#define MACRO_BUZZER_RTTTL_STARTUP "Mission Impossible:o=5,d=16,b=100,b=100:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c6,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,p,a#4,c"
+#define MACRO_BUZZER_RTTTL_STARTUP "mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,8e6,8g6,8p,8g,8p"
 
 #define MACRO_BUZZER_KEYPRESS_ENABLED true
 #define MACRO_BUZZER_RTTTL_KEYPRESS "key:d=32,o=6,b=180:c"
