@@ -9,6 +9,7 @@ This file controls:
 - touch mappings per layer
 - layer backlight colors
 - LED brightness groups (indicator vs key LEDs)
+- buzzer behavior and tone settings
 - touch algorithm tuning constants
 - OLED protection and brightness constants
 
@@ -77,3 +78,19 @@ Partition goals:
 - Two OTA slots: `ota_0`, `ota_1`
 - Reserved data partition for future config persistence:
   - `cfgstore` (`1MB`, currently unused by firmware logic)
+
+## 9) Buzzer Settings
+Defined in `main/keymap_config.h`:
+- `MACRO_BUZZER_ENABLED`
+- `MACRO_BUZZER_GPIO`
+- `MACRO_BUZZER_DUTY_PERCENT`
+- `MACRO_BUZZER_QUEUE_SIZE`
+
+Event toggles and tones:
+- `MACRO_BUZZER_STARTUP_*`
+- `MACRO_BUZZER_KEYPRESS_*`
+- `MACRO_BUZZER_LAYER_SWITCH_*`
+- `MACRO_BUZZER_ENCODER_STEP_*`
+
+Behavior details:
+- [Buzzer Feedback](Buzzer-Feedback)

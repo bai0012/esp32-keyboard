@@ -26,6 +26,7 @@
 #include "keymap_config.h"
 #include "sdkconfig.h"
 
+#include "buzzer.h"
 #include "macropad_hid.h"
 #include "oled_clock.h"
 #include "touch_slider.h"
@@ -130,6 +131,7 @@ static void set_active_layer(uint8_t layer)
 
     s_active_layer = layer;
     ESP_LOGI(TAG, "Switched to Layer %u", (unsigned)s_active_layer + 1);
+    buzzer_play_layer_switch(s_active_layer);
     macropad_send_keyboard_report(s_key_pressed, s_active_layer);
 }
 
@@ -435,6 +437,7 @@ static void input_task(void *arg)
                 s_key_pressed[i] = s_key_db[i].stable_level;
                 if (s_key_pressed[i]) {
                     mark_user_activity(now);
+                    buzzer_play_keypress();
                 }
 
                 ESP_LOGI(TAG, "L%u Key[%u:%s] %s (gpio=%d type=%d usage=0x%X)",
@@ -509,6 +512,7 @@ static void input_task(void *arg)
         const int steps = pulse_count / ENCODER_DETENT_PULSES;
         if (steps != 0) {
             mark_user_activity(now);
+            buzzer_play_encoder_step((steps > 0) ? 1 : -1);
             ESP_ERROR_CHECK(pcnt_unit_clear_count(s_pcnt_unit));
 
             const uint16_t usage = (steps > 0) ?
@@ -526,6 +530,8 @@ static void input_task(void *arg)
         if (led_err != ESP_OK) {
             ESP_LOGE(TAG, "LED update failed: %s", esp_err_to_name(led_err));
         }
+
+        buzzer_update(now);
 
         if ((now - last_heartbeat) >= pdMS_TO_TICKS(2000)) {
             last_heartbeat = now;
@@ -650,6 +656,8 @@ void app_main(void)
     ESP_ERROR_CHECK(touch_slider_init());
     ESP_ERROR_CHECK(init_encoder());
     ESP_ERROR_CHECK(init_led_strip());
+    ESP_ERROR_CHECK(buzzer_init());
+    buzzer_play_startup();
     ESP_ERROR_CHECK(oled_clock_init());
     ESP_ERROR_CHECK(oled_clock_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     ESP_ERROR_CHECK(macropad_usb_init());

@@ -6,6 +6,7 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - Firmware target: `ESP32-S3`
 - Input devices: 12 keys, EC11 encoder button/rotation, 2-channel touch slider
 - Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED clock
+- Output devices: USB HID, 15x SK6812 LEDs, 128x64 OLED clock, passive buzzer
 - Optional network: Wi-Fi SNTP time sync
 - OLED protection: pixel shift, inactivity dim/off, hourly inversion
 
@@ -15,15 +16,17 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 3. [Configuration](Configuration)
 4. [Runtime Behavior](Runtime-Behavior)
 5. [OLED Display](OLED-Display)
-6. [Touch Slider Algorithm](Touch-Slider-Algorithm)
-7. [API Reference](API-Reference)
-8. [Development Workflow](Development-Workflow)
-9. [Troubleshooting](Troubleshooting)
-10. [Documentation Policy](Documentation-Policy)
+6. [Buzzer Feedback](Buzzer-Feedback)
+7. [Touch Slider Algorithm](Touch-Slider-Algorithm)
+8. [API Reference](API-Reference)
+9. [Development Workflow](Development-Workflow)
+10. [Troubleshooting](Troubleshooting)
+11. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP
 - `main/macropad_hid.c`: TinyUSB/HID descriptors and report sending
 - `main/touch_slider.c`: touch gesture state machine + hold-repeat
 - `main/oled_clock.c`: OLED framebuffer + clock rendering
+- `main/buzzer.c`: non-blocking passive buzzer tone playback
 - `main/keymap_config.h`: layers, mappings, and all tuning constants

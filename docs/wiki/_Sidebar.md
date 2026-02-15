@@ -4,6 +4,7 @@
 - [Configuration](Configuration)
 - [Runtime Behavior](Runtime-Behavior)
 - [OLED Display](OLED-Display)
+- [Buzzer Feedback](Buzzer-Feedback)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [API Reference](API-Reference)
 - [Development Workflow](Development-Workflow)

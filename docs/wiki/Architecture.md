@@ -26,6 +26,10 @@
   - I2C OLED init and command path
   - Framebuffer primitives
   - 7-segment style clock render
+- `main/buzzer.c`
+  - Passive buzzer (LEDC PWM) initialization
+  - Non-blocking tone queue
+  - Event-tone helper APIs (startup/key/layer/encoder)
 
 OLED subsystem deep-dive:
 - [OLED Display](OLED-Display)
@@ -39,6 +43,7 @@ OLED subsystem deep-dive:
 ## 4) Build Composition
 - `main/CMakeLists.txt` registers:
   - `main.c`
+  - `buzzer.c`
   - `macropad_hid.c`
   - `touch_slider.c`
   - `oled_clock.c`

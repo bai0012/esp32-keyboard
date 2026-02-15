@@ -115,8 +115,8 @@ static const macro_rgb_t g_layer_backlight_color[MACRO_LAYER_COUNT] = {
  * - Indicator group: LEDs 0/1/2 (USB mounted, HID ready, layer indicator).
  * - Key group: per-key backlight LEDs.
  */
-#define MACRO_LED_INDICATOR_BRIGHTNESS 20
-#define MACRO_LED_KEY_BRIGHTNESS 24
+#define MACRO_LED_INDICATOR_BRIGHTNESS 16
+#define MACRO_LED_KEY_BRIGHTNESS 10
 
 // 0..255 scales applied to g_layer_backlight_color for idle and pressed key brightness.
 #define MACRO_LAYER_KEY_DIM_SCALE 45
@@ -165,6 +165,35 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_OLED_SHIFT_RANGE_PX 2
 #define MACRO_OLED_SHIFT_INTERVAL_SEC 60
 #define MACRO_OLED_I2C_SCL_HZ 800000
+
+/*
+ * Passive buzzer settings (LEDC PWM).
+ * Set MACRO_BUZZER_ENABLED to false to compile out buzzer feedback behavior.
+ */
+#define MACRO_BUZZER_ENABLED true
+#define MACRO_BUZZER_GPIO GPIO_NUM_21
+#define MACRO_BUZZER_DUTY_PERCENT 28
+#define MACRO_BUZZER_QUEUE_SIZE 16
+
+#define MACRO_BUZZER_STARTUP_ENABLED true
+#define MACRO_BUZZER_STARTUP_FREQ1_HZ 1800
+#define MACRO_BUZZER_STARTUP_FREQ2_HZ 2400
+#define MACRO_BUZZER_STARTUP_TONE_MS 30
+#define MACRO_BUZZER_STARTUP_GAP_MS 20
+
+#define MACRO_BUZZER_KEYPRESS_ENABLED true
+#define MACRO_BUZZER_KEYPRESS_FREQ_HZ 2700
+#define MACRO_BUZZER_KEYPRESS_MS 10
+
+#define MACRO_BUZZER_LAYER_SWITCH_ENABLED true
+#define MACRO_BUZZER_LAYER_BASE_FREQ_HZ 1300
+#define MACRO_BUZZER_LAYER_STEP_HZ 250
+#define MACRO_BUZZER_LAYER_MS 26
+
+#define MACRO_BUZZER_ENCODER_STEP_ENABLED false
+#define MACRO_BUZZER_ENCODER_CW_FREQ_HZ 2400
+#define MACRO_BUZZER_ENCODER_CCW_FREQ_HZ 2100
+#define MACRO_BUZZER_ENCODER_MS 8
 
 // Touch active threshold = baseline * percent / 100
 #define MACRO_TOUCH_TRIGGER_PERCENT 85

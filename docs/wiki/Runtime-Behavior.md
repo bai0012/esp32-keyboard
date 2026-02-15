@@ -43,7 +43,16 @@
   - synced: top-right indicator
   - unsynced: bottom bar indicator
 
-## 7) OLED Screen Protection
+## 7) Buzzer Feedback
+- Buzzer playback is non-blocking and queue-driven.
+- Default event hooks:
+  - startup chirp
+  - key-press click
+  - layer-switch tone
+  - optional encoder-step tone
+- Event and tone parameters are configured via `MACRO_BUZZER_*` in `main/keymap_config.h`.
+
+## 8) OLED Screen Protection
 - Universal pixel shifting:
   - All rendered clock content (including static markers) is shifted together.
   - Shift is randomized in the configured range (default `+/-2 px`) every configured interval (default 60s).
@@ -59,3 +68,6 @@
 
 For complete OLED behavior details and tuning guidance:
 - [OLED Display](OLED-Display)
+
+For buzzer behavior details and tuning guidance:
+- [Buzzer Feedback](Buzzer-Feedback)

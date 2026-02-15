@@ -6,6 +6,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - 2-channel touch slider
 - 15x SK6812 RGB LEDs
 - 128x64 I2C OLED clock
+- Passive buzzer feedback (LEDC PWM)
 - USB HID (keyboard + consumer control)
 - Optional Wi-Fi SNTP time sync
 
@@ -20,6 +21,11 @@ Hardware reference is documented in `hardware_info.md`.
 - RGB layer/status feedback
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
 - OLED digital clock with SNTP sync indicator
+- Passive buzzer feedback:
+  - startup chirp
+  - key-press click
+  - layer-switch tone
+  - optional encoder-step tone
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
   - inactivity auto-dim and auto-off
@@ -37,6 +43,7 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/macropad_hid.c`: TinyUSB descriptors and HID report sending
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
 - `main/oled_clock.c`: OLED drawing and render pipeline
+- `main/buzzer.c`: passive buzzer tone queue and event helpers
 - `main/keymap_config.h`: key/encoder/touch mappings and tuning constants
 - `main/Kconfig.projbuild`: Wi-Fi, NTP, timezone config entries
 - `partitions_8mb_ota.csv`: custom 8MB partition layout (2 OTA + cfgstore)
@@ -77,6 +84,9 @@ Edit `main/keymap_config.h`:
 - LED brightness group constants:
   - `MACRO_LED_INDICATOR_BRIGHTNESS` (LEDs 0/1/2 group)
   - `MACRO_LED_KEY_BRIGHTNESS` (12 key LEDs group)
+- Buzzer constants (`MACRO_BUZZER_*`)
+  - GPIO, duty cycle, queue size
+  - startup/key/layer/encoder tone behavior
 - OLED protection constants (`MACRO_OLED_*`)
   - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
 
@@ -99,6 +109,9 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - `R->L` triggers `left_usage`
   - `L->R` triggers `right_usage`
   - Hold-repeat only runs when enabled per-layer in `g_touch_layer_config`
+- Buzzer:
+  - startup/key/layer/encoder feedback behavior is driven by `MACRO_BUZZER_*`
+  - tone playback is non-blocking and queued
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
@@ -131,6 +144,7 @@ Leaving SSID empty disables Wi-Fi/SNTP.
 - Wiki home: `docs/wiki/Home.md`
 - Wiki sidebar/navigation: `docs/wiki/_Sidebar.md`
 - OLED deep-dive: `docs/wiki/OLED-Display.md`
+- Buzzer deep-dive: `docs/wiki/Buzzer-Feedback.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

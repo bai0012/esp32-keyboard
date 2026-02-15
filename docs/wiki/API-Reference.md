@@ -42,3 +42,30 @@
 
 Behavior/tuning reference:
 - [OLED Display](OLED-Display)
+
+## 4) Buzzer Module (`main/buzzer.h`)
+
+### `esp_err_t buzzer_init(void);`
+- Initializes LEDC PWM for passive buzzer output.
+
+### `void buzzer_update(TickType_t now);`
+- Processes tone queue state machine (non-blocking).
+- Call periodically from runtime loop.
+
+### `void buzzer_stop(void);`
+- Stops output and clears queued tones.
+
+### `esp_err_t buzzer_play_tone(uint16_t frequency_hz, uint16_t duration_ms);`
+- Queues a tone.
+
+### `esp_err_t buzzer_play_tone_ex(uint16_t frequency_hz, uint16_t duration_ms, uint16_t silence_ms);`
+- Queues a tone with a post-tone silence gap.
+
+### `void buzzer_play_startup(void);`
+### `void buzzer_play_keypress(void);`
+### `void buzzer_play_layer_switch(uint8_t layer_index);`
+### `void buzzer_play_encoder_step(int8_t direction);`
+- Convenience event helpers that map runtime events to configured tones.
+
+Behavior/tuning reference:
+- [Buzzer Feedback](Buzzer-Feedback)
