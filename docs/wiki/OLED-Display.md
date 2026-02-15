@@ -7,7 +7,7 @@ Primary source files:
 - `main/oled_clock.c`
 - `main/oled_clock.h`
 - `main/main.c` (`display_task`)
-- `main/keymap_config.h`
+- `config/keymap_config.yaml` (generated into `main/keymap_config.h`)
 
 ## 2) What Is Rendered
 - Main content: `HH:MM:SS` digital clock.
@@ -47,7 +47,7 @@ Primary source files:
   - `oled_clock_set_inverted()`
 
 ## 6) Configuration Knobs
-Defined in `main/keymap_config.h`:
+Defined in `config/keymap_config.yaml` under `oled.*` (generated macros in `main/keymap_config.h`):
 - `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`
 - `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`
 - `MACRO_OLED_DIM_TIMEOUT_SEC`

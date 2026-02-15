@@ -36,7 +36,7 @@ Configured in `g_touch_layer_config`.
 - Stops immediately when hold condition breaks.
 
 ## 5) Tuning Knobs
-All tunables are in `main/keymap_config.h` as `MACRO_TOUCH_*` constants.
+All tunables are in `config/keymap_config.yaml` under `touch.*` (generated as `MACRO_TOUCH_*` constants).
 
 Main groups:
 - active/release thresholds

@@ -36,7 +36,7 @@ OLED subsystem deep-dive:
 
 ## 3) Data/Control Flow
 1. Input signals are sampled in `input_task`.
-2. Key/encoder/touch events are mapped using `main/keymap_config.h`.
+2. Key/encoder/touch events are mapped from `config/keymap_config.yaml` (compiled as `main/keymap_config.h`).
 3. HID reports are sent by `macropad_hid` APIs.
 4. LEDs and OLED are updated for runtime status feedback.
 

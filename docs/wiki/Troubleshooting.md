@@ -11,7 +11,7 @@
 
 ## 3) Touch Swipe Misses or False Triggers
 - Enable debug logs (`MACRO_TOUCH_DEBUG_LOG_ENABLE`).
-- Tune thresholds incrementally in `main/keymap_config.h`.
+- Tune thresholds incrementally in `config/keymap_config.yaml` (`touch.*`).
 - Verify left/right physical orientation against `MACRO_TOUCH_SWAP_SIDES`.
 
 ## 4) Encoder Issues
@@ -27,7 +27,7 @@
 - Remember: empty SSID intentionally disables SNTP.
 
 ## 6) OLED Protection Behavior Not as Expected
-- Verify `MACRO_OLED_*` constants in `main/keymap_config.h`.
+- Verify `oled.*` settings in `config/keymap_config.yaml`.
 - If screen turns off too early/late:
   - tune `MACRO_OLED_DIM_TIMEOUT_SEC` and `MACRO_OLED_OFF_TIMEOUT_SEC`.
 - If movement appears too large/small:
@@ -40,6 +40,6 @@
 - Keep data line short and well-referenced to ground.
 - Confirm firmware includes change-driven LED refresh and indicator debounce logic.
 - If needed, reduce LED intensity via `MACRO_LED_INDICATOR_BRIGHTNESS` / `MACRO_LED_KEY_BRIGHTNESS`.
-- Tune brightness groups in `main/keymap_config.h`:
+- Tune brightness groups in `config/keymap_config.yaml`:
   - `MACRO_LED_INDICATOR_BRIGHTNESS`
   - `MACRO_LED_KEY_BRIGHTNESS`

@@ -29,4 +29,5 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - `main/touch_slider.c`: touch gesture state machine + hold-repeat
 - `main/oled_clock.c`: OLED framebuffer + clock rendering
 - `main/buzzer.c`: non-blocking passive buzzer tone playback
-- `main/keymap_config.h`: layers, mappings, and all tuning constants
+- `config/keymap_config.yaml`: source-of-truth layers, mappings, and tuning constants
+- `main/keymap_config.h`: generated config header used by firmware build

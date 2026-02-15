@@ -13,7 +13,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 Hardware reference is documented in `hardware_info.md`.
 
 ## Features
-- 3 key layers defined in `main/keymap_config.h`
+- 3 key layers defined in `config/keymap_config.yaml`
 - Per-layer encoder mappings (single tap, CW, CCW)
 - Per-layer touch-slide mappings
 - Touch slide direction detection (`R->L` / `L->R`)
@@ -26,7 +26,7 @@ Hardware reference is documented in `hardware_info.md`.
   - key-press click
   - layer-switch beeps N times for layer N
   - optional encoder-step tone
-  - all event sounds configurable via RTTTL strings in `keymap_config.h`
+  - all event sounds configurable via RTTTL strings in `config/keymap_config.yaml`
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
   - inactivity auto-dim and auto-off
@@ -45,7 +45,9 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
 - `main/oled_clock.c`: OLED drawing and render pipeline
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
-- `main/keymap_config.h`: key/encoder/touch mappings and tuning constants
+- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer)
+- `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
+- `main/keymap_config.h`: auto-generated C config header (do not edit manually)
 - `main/Kconfig.projbuild`: Wi-Fi, NTP, timezone config entries
 - `partitions_8mb_ota.csv`: custom 8MB partition layout (2 OTA + cfgstore)
 
@@ -77,20 +79,20 @@ idf.py -p <PORT> flash monitor
 
 ## Configuration
 ### 1) Key/encoder/touch behavior
-Edit `main/keymap_config.h`:
-- `g_macro_keymap_layers`
-- `g_encoder_layer_config`
-- `g_touch_layer_config`
-- Touch tuning constants (`MACRO_TOUCH_*`)
-- LED brightness group constants:
-  - `MACRO_LED_INDICATOR_BRIGHTNESS` (LEDs 0/1/2 group)
-  - `MACRO_LED_KEY_BRIGHTNESS` (12 key LEDs group)
-- Buzzer constants (`MACRO_BUZZER_*`)
-  - GPIO, duty cycle, queue size
-  - RTTTL melodies for startup/key/layer/encoder events
-  - per-note RTTTL gap tuning (`MACRO_BUZZER_RTTTL_NOTE_GAP_MS`)
-- OLED protection constants (`MACRO_OLED_*`)
-  - includes OLED I2C speed (`MACRO_OLED_I2C_SCL_HZ`)
+Edit `config/keymap_config.yaml`:
+- key maps (`keymap_layers`)
+- encoder maps (`encoder.layers`)
+- touch maps and tunables (`touch.*`)
+- LED brightness + layer color scales (`led.*`)
+- buzzer behavior + RTTTL melodies (`buzzer.*`)
+- OLED protection and I2C speed (`oled.*`)
+
+Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
+
+Manual generation (optional):
+```powershell
+python tools/generate_keymap_header.py --in config/keymap_config.yaml --out main/keymap_config.h
+```
 
 ### 2) Wi-Fi + SNTP + timezone
 Set via `idf.py menuconfig` under `MacroPad Configuration`:
@@ -112,7 +114,7 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - `L->R` triggers `right_usage`
   - Hold-repeat only runs when enabled per-layer in `g_touch_layer_config`
 - Buzzer:
-  - startup/key/layer/encoder feedback behavior is driven by `MACRO_BUZZER_*`
+  - startup/key/layer/encoder feedback behavior is driven by `buzzer.*` in YAML
   - event melodies use RTTTL strings (`name:d=,o=,b=:notes`)
   - tone playback is non-blocking and queued
   - encoder-step beeps are throttled/coalesced to avoid long tail playback after very fast spins

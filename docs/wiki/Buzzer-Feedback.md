@@ -18,7 +18,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - encoder step -> `buzzer_play_encoder_step()` (optional, config-gated)
   - periodic service -> `buzzer_update(now)`
 
-## 3) Configuration (`main/keymap_config.h`)
+## 3) Configuration (`config/keymap_config.yaml`)
 - Core:
   - `MACRO_BUZZER_ENABLED`
   - `MACRO_BUZZER_GPIO`
@@ -43,7 +43,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS`
 
 ## 4) RTTTL Support
-- Event sounds are defined as RTTTL strings in config.
+- Event sounds are defined as RTTTL strings in YAML config (`buzzer.*`).
 - Supported syntax:
   - `name:d=<default_duration>,o=<default_octave>,b=<bpm>:<notes>`
   - notes: `c d e f g a b p`, optional `#`, optional dots `.`, optional octave digit

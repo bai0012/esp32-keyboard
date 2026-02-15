@@ -1,44 +1,111 @@
 # Configuration
 
-## 1) Primary Behavior File
-- `main/keymap_config.h`
+## 1) Source of Truth
+- Editable config: `config/keymap_config.yaml`
+- Generated header: `main/keymap_config.h` (auto-generated, do not edit directly)
+- Generator script: `tools/generate_keymap_header.py`
 
-This file controls:
-- key mappings per layer
-- encoder mappings per layer
-- touch mappings per layer
-- layer backlight colors
-- LED brightness groups (indicator vs key LEDs)
-- buzzer behavior and tone settings
-- touch algorithm tuning constants
-- OLED protection and brightness constants
+Build automatically regenerates the header from YAML.
 
-## 2) Key Mappings
-- Table: `g_macro_keymap_layers[MACRO_LAYER_COUNT][MACRO_KEY_COUNT]`
-- Per key fields:
-  - `gpio`
-  - `active_low`
-  - `led_index`
-  - `type` (`MACRO_ACTION_KEYBOARD` or `MACRO_ACTION_CONSUMER`)
-  - `usage`
-  - `name`
+Manual generation:
+```powershell
+python tools/generate_keymap_header.py --in config/keymap_config.yaml --out main/keymap_config.h
+```
 
-## 3) Encoder Mappings
-- Table: `g_encoder_layer_config`
-- Per layer:
-  - `button_single_usage`
-  - `cw_usage`
-  - `ccw_usage`
+## 2) YAML Line-by-Line Reference (with examples)
+Each row below is a concrete key path in `config/keymap_config.yaml`.
 
-## 4) Touch Mappings
-- Table: `g_touch_layer_config`
-- Per layer:
-  - `left_usage` (triggered by `R->L`)
-  - `right_usage` (triggered by `L->R`)
-  - `left_hold_repeat`, `right_hold_repeat`
-  - `hold_start_ms`, `hold_repeat_ms`
+| Key Path | Example | Meaning |
+|---|---|---|
+| `schema_version` | `1` | Config schema version for future migration. |
+| `counts.key` | `12` | Number of keys per layer. |
+| `counts.layer` | `3` | Number of layers for key/encoder/touch maps. |
+| `keymap_layers[].name` | `Layer 1 (default)` | Human-readable layer label used in generated comments. |
+| `keymap_layers[].keys[].gpio` | `GPIO_NUM_7` | Input GPIO for one key. |
+| `keymap_layers[].keys[].active_low` | `true` | `true` means pressed state is logic low. |
+| `keymap_layers[].keys[].led_index` | `3` | SK6812 index tied to that key (`0xFF` = no LED). |
+| `keymap_layers[].keys[].type` | `MACRO_ACTION_KEYBOARD` | Action type (`MACRO_ACTION_KEYBOARD` or `MACRO_ACTION_CONSUMER`). |
+| `keymap_layers[].keys[].usage` | `HID_KEY_A` | HID usage symbol for key/consumer action. |
+| `keymap_layers[].keys[].name` | `K1` | Debug/log label for the key. |
+| `layer_backlight_colors[].r` | `90` | Layer base red channel (0..255). |
+| `layer_backlight_colors[].g` | `90` | Layer base green channel (0..255). |
+| `layer_backlight_colors[].b` | `0` | Layer base blue channel (0..255). |
+| `led.indicator_brightness` | `16` | Brightness group for LEDs `0/1/2` (USB/HID/layer indicator). |
+| `led.key_brightness` | `10` | Brightness group for key backlight LEDs. |
+| `led.layer_key_dim_scale` | `45` | Idle scale applied to layer base color. |
+| `led.layer_key_active_scale` | `140` | Pressed-key scale applied to layer base color. |
+| `encoder.button_active_low` | `true` | Encoder button polarity. |
+| `encoder.tap_window_ms` | `350` | Multi-tap grouping window. |
+| `encoder.single_tap_delay_ms` | `120` | Delay before dispatching single-tap action. |
+| `encoder.layers[].button_single_usage` | `HID_USAGE_CONSUMER_PLAY_PAUSE` | Layer-specific single-tap action. |
+| `encoder.layers[].cw_usage` | `HID_USAGE_CONSUMER_VOLUME_INCREMENT` | Clockwise rotation action. |
+| `encoder.layers[].ccw_usage` | `HID_USAGE_CONSUMER_VOLUME_DECREMENT` | Counter-clockwise rotation action. |
+| `touch.layers[].left_usage` | `HID_USAGE_CONSUMER_SCAN_PREVIOUS_TRACK` | Action fired by `R->L` slide. |
+| `touch.layers[].right_usage` | `HID_USAGE_CONSUMER_SCAN_NEXT_TRACK` | Action fired by `L->R` slide. |
+| `touch.layers[].left_hold_repeat` | `false` | Enable hold-repeat for `R->L` direction. |
+| `touch.layers[].right_hold_repeat` | `false` | Enable hold-repeat for `L->R` direction. |
+| `touch.layers[].hold_start_ms` | `220` | Delay before first hold-repeat event. |
+| `touch.layers[].hold_repeat_ms` | `110` | Repeat interval while holding edge. |
+| `touch.trigger_percent` | `85` | Active threshold as `baseline * percent / 100`. |
+| `touch.release_percent` | `92` | Release threshold as `baseline * percent / 100`. |
+| `touch.trigger_min_delta` | `3500` | Minimum absolute delta needed to activate touch. |
+| `touch.release_min_delta` | `1800` | Minimum absolute delta to remain active. |
+| `touch.gesture_window_ms` | `650` | Max time between first and second side for swipe recognition. |
+| `touch.min_interval_ms` | `280` | Debounce interval between emitted gestures. |
+| `touch.baseline_freeze_total_delta` | `1200` | Freeze baseline when total delta exceeds this value. |
+| `touch.baseline_freeze_side_delta` | `600` | Freeze baseline when max-side delta exceeds this value. |
+| `touch.contact_min_total_delta` | `1500` | Minimum total delta for valid contact. |
+| `touch.contact_min_side_delta` | `700` | Minimum single-side delta for valid contact. |
+| `touch.start_side_delta` | `250` | Initial side dominance threshold (`|dR-dL|`). |
+| `touch.gesture_travel_delta` | `450` | Minimum filtered travel before allowing swipe fire. |
+| `touch.swipe_side_min_delta` | `1500` | Minimum compensated side delta for “side visited”. |
+| `touch.swipe_side_relative_percent` | `20` | Crosstalk guard ratio for side-visited detection. |
+| `touch.require_both_sides` | `true` | Require both sides visited before swipe emit. |
+| `touch.both_sides_hold_ms` | `50` | Hold time after both sides are visited. |
+| `touch.side_sequence_min_ms` | `20` | Minimum delay between first-side and second-side activation. |
+| `touch.start_dominant_min_ms` | `30` | Start side must remain dominant for this long. |
+| `touch.min_swipe_ms` | `100` | Minimum touch-session duration before swipe emit. |
+| `touch.direction_dominance_delta` | `650` | Direction confirmation threshold (`|dR-dL|`). |
+| `touch.swap_sides` | `false` | Set `true` only if physical slider orientation is mirrored. |
+| `touch.debug_log_enable` | `false` | Enable periodic verbose touch debug logs. |
+| `touch.debug_log_interval_ms` | `80` | Debug log interval when enabled. |
+| `touch.idle_noise_margin` | `120` | Idle-noise compensation margin. |
+| `touch.idle_noise_max_delta` | `2400` | Max delta considered as idle noise sampling window. |
+| `oled.default_brightness_percent` | `70` | OLED normal brightness at runtime start/wake. |
+| `oled.dim_brightness_percent` | `15` | OLED brightness in dim state. |
+| `oled.dim_timeout_sec` | `45` | Idle timeout before dimming. |
+| `oled.off_timeout_sec` | `180` | Idle timeout before full panel off. |
+| `oled.shift_range_px` | `2` | Pixel-shift random radius (`+/-N`). |
+| `oled.shift_interval_sec` | `60` | Pixel-shift interval. |
+| `oled.i2c_scl_hz` | `800000` | OLED I2C clock speed in Hz. |
+| `buzzer.enabled` | `true` | Master buzzer enable. |
+| `buzzer.gpio` | `GPIO_NUM_21` | Buzzer output pin. |
+| `buzzer.duty_percent` | `28` | PWM duty for passive buzzer loudness. |
+| `buzzer.queue_size` | `16` | Non-blocking tone queue capacity. |
+| `buzzer.rtttl_note_gap_ms` | `8` | Gap inserted between parsed RTTTL notes. |
+| `buzzer.startup.enabled` | `true` | Startup melody enable. |
+| `buzzer.startup.rtttl` | `'mario:d=8,o=6,b=100:e,e,p,e,p,c,e,p,g,p,g5'` | Startup RTTTL melody string. |
+| `buzzer.keypress.enabled` | `true` | Key-press click enable. |
+| `buzzer.keypress.rtttl` | `'key:d=32,o=6,b=180:c'` | Key-press RTTTL melody string. |
+| `buzzer.layer_switch.enabled` | `true` | Layer-switch feedback enable. |
+| `buzzer.layer_switch.layer1_rtttl` | `'l1:d=16,o=6,b=180:g'` | Layer-1 tone pattern. |
+| `buzzer.layer_switch.layer2_rtttl` | `'l2:d=16,o=6,b=180:g,g'` | Layer-2 tone pattern. |
+| `buzzer.layer_switch.layer3_rtttl` | `'l3:d=16,o=6,b=180:g,g,g'` | Layer-3 tone pattern. |
+| `buzzer.encoder_step.enabled` | `true` | Encoder step tone enable. |
+| `buzzer.encoder_step.cw_rtttl` | `'cw:d=32,o=6,b=220:e'` | Clockwise encoder step tone. |
+| `buzzer.encoder_step.ccw_rtttl` | `'ccw:d=32,o=6,b=220:d'` | Counter-clockwise encoder step tone. |
+| `buzzer.encoder_step.min_interval_ms` | `14` | Minimum interval between queued encoder tones (anti-tail). |
 
-## 5) Wi-Fi / NTP / Timezone
+## 3) Validation Rules
+- `counts.layer` must equal:
+  - number of `keymap_layers`
+  - number of `layer_backlight_colors`
+  - number of `encoder.layers`
+  - number of `touch.layers`
+- `counts.key` must equal each `keymap_layers[].keys` length.
+- `usage`, `gpio`, and `type` values must be valid C symbols used by ESP-IDF/TinyUSB headers.
+
+## 4) Related Runtime Config (Menuconfig)
 Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_WIFI_SSID`
 - `MACROPAD_WIFI_PASSWORD`
@@ -47,56 +114,7 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 
 If SSID is empty, Wi-Fi and SNTP are disabled.
 
-## 6) OLED Protection Settings
-Defined in `main/keymap_config.h`:
-- `MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT`
-- `MACRO_OLED_DIM_BRIGHTNESS_PERCENT`
-- `MACRO_OLED_DIM_TIMEOUT_SEC`
-- `MACRO_OLED_OFF_TIMEOUT_SEC`
-- `MACRO_OLED_SHIFT_RANGE_PX`
-- `MACRO_OLED_SHIFT_INTERVAL_SEC`
-- `MACRO_OLED_I2C_SCL_HZ`
-
-Detailed behavior and validation checklist:
+## 5) Related Pages
 - [OLED Display](OLED-Display)
-
-## 7) LED Brightness Groups
-Defined in `main/keymap_config.h`:
-- `MACRO_LED_INDICATOR_BRIGHTNESS`
-  - Applies to indicator LEDs (USB mounted, HID ready, layer indicator).
-- `MACRO_LED_KEY_BRIGHTNESS`
-  - Applies to key backlight LEDs.
-
-## 8) System Performance + Flash Layout
-Primary settings live in `sdkconfig` / `sdkconfig.defaults`:
-- Flash size target: `8MB`
-- CPU frequency target: `240MHz`
-- Compiler optimization: performance-oriented release profile
-- Partition table: `partitions_8mb_ota.csv`
-
-Partition goals:
-- Two OTA slots: `ota_0`, `ota_1`
-- Reserved data partition for future config persistence:
-  - `cfgstore` (`1MB`, currently unused by firmware logic)
-
-## 9) Buzzer Settings
-Defined in `main/keymap_config.h`:
-- `MACRO_BUZZER_ENABLED`
-- `MACRO_BUZZER_GPIO`
-- `MACRO_BUZZER_DUTY_PERCENT`
-- `MACRO_BUZZER_QUEUE_SIZE`
-- `MACRO_BUZZER_RTTTL_NOTE_GAP_MS`
-
-Event toggles and tones:
-- `MACRO_BUZZER_STARTUP_ENABLED` + `MACRO_BUZZER_RTTTL_STARTUP`
-- `MACRO_BUZZER_KEYPRESS_ENABLED` + `MACRO_BUZZER_RTTTL_KEYPRESS`
-- `MACRO_BUZZER_LAYER_SWITCH_ENABLED` + `MACRO_BUZZER_RTTTL_LAYER1/2/3`
-- `MACRO_BUZZER_ENCODER_STEP_ENABLED` + `MACRO_BUZZER_RTTTL_ENCODER_CW/CCW`
-- `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS` (fast-spin anti-backlog)
-
-RTTTL format used:
-- `name:d=<default_duration>,o=<default_octave>,b=<bpm>:<notes>`
-- Example: `l2:d=16,o=6,b=180:g,g`
-
-Behavior details:
 - [Buzzer Feedback](Buzzer-Feedback)
+- [Touch Slider Algorithm](Touch-Slider-Algorithm)

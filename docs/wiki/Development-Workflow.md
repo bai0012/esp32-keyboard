@@ -4,9 +4,10 @@
 1. Identify which module owns the change.
 2. Implement in module first; keep `main/main.c` orchestration-focused.
 3. Expose minimal public API in headers.
-4. Update `main/keymap_config.h` if behavior is intended to be configurable.
-5. Build and run target behavior tests.
-6. Update documentation pages (mandatory).
+4. Update `config/keymap_config.yaml` if behavior is intended to be configurable.
+5. Regenerate `main/keymap_config.h` (automatic during build, or manually via generator script).
+6. Build and run target behavior tests.
+7. Update documentation pages (mandatory).
 
 ## 2) Module Ownership Guidance
 - Input orchestration and task lifecycle: `main/main.c`

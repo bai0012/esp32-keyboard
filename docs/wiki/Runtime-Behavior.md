@@ -50,7 +50,7 @@
   - key-press click
   - layer-switch beeps N times for layer N
   - optional encoder-step tone
-- Event and tone parameters are configured via `MACRO_BUZZER_*` in `main/keymap_config.h`.
+- Event and tone parameters are configured via `buzzer.*` in `config/keymap_config.yaml` (generated to `MACRO_BUZZER_*`).
 - Event melodies are RTTTL strings; playback is parsed and queued at runtime.
 - Encoder-step tones are rate-limited and coalesced to avoid post-spin tail playback.
 
