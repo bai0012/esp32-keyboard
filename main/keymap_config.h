@@ -177,7 +177,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_NOTE_GAP_MS 8
 
 #define MACRO_BUZZER_STARTUP_ENABLED true
-// Mario intro (first phrase): E E . E . C E . G . G5
+// Mario intro (first phrase)
 #define MACRO_BUZZER_RTTTL_STARTUP "mario:d=8,o=6,b=100:e,e,p,e,p,c,e,p,g,p,g5"
 
 #define MACRO_BUZZER_KEYPRESS_ENABLED true
@@ -189,9 +189,11 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_LAYER2 "l2:d=16,o=6,b=180:g,g"
 #define MACRO_BUZZER_RTTTL_LAYER3 "l3:d=16,o=6,b=180:g,g,g"
 
-#define MACRO_BUZZER_ENCODER_STEP_ENABLED false
+#define MACRO_BUZZER_ENCODER_STEP_ENABLED true
 #define MACRO_BUZZER_RTTTL_ENCODER_CW "cw:d=32,o=6,b=220:e"
 #define MACRO_BUZZER_RTTTL_ENCODER_CCW "ccw:d=32,o=6,b=220:d"
+// Minimum spacing between queued encoder step sounds to avoid backlog on very fast spins.
+#define MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS 14
 
 // Touch active threshold = baseline * percent / 100
 #define MACRO_TOUCH_TRIGGER_PERCENT 85

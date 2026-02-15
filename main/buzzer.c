@@ -8,6 +8,7 @@
 #include "driver/ledc.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "freertos/task.h"
 
 #include "keymap_config.h"
 
@@ -46,6 +47,7 @@ static TickType_t s_phase_deadline = 0;
 static bool s_initialized = false;
 static bool s_tone_active = false;
 static bool s_silence_active = false;
+static TickType_t s_encoder_last_enqueue_tick = 0;
 
 static inline bool tick_reached(TickType_t now, TickType_t deadline)
 {
@@ -366,6 +368,7 @@ esp_err_t buzzer_init(void)
     queue_clear();
     s_tone_active = false;
     s_silence_active = false;
+    s_encoder_last_enqueue_tick = 0;
     s_initialized = true;
     ESP_LOGI(TAG, "ready gpio=%d duty=%u%%", (int)MACRO_BUZZER_GPIO, (unsigned)MACRO_BUZZER_DUTY_PERCENT);
     return ESP_OK;
@@ -379,6 +382,7 @@ void buzzer_stop(void)
     queue_clear();
     s_tone_active = false;
     s_silence_active = false;
+    s_encoder_last_enqueue_tick = 0;
     s_current_tone = (buzzer_tone_t){0};
     buzzer_output_disable();
 }
@@ -571,9 +575,22 @@ void buzzer_play_encoder_step(int8_t direction)
     if (!MACRO_BUZZER_ENCODER_STEP_ENABLED) {
         return;
     }
+
+    const TickType_t now = xTaskGetTickCount();
+    const TickType_t min_interval_ticks = pdMS_TO_TICKS(MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS);
+    if (min_interval_ticks > 0 && (now - s_encoder_last_enqueue_tick) < min_interval_ticks) {
+        return;
+    }
+    // Coalesce bursty encoder events: keep at most one pending encoder tone.
+    if (s_queue_count > 0) {
+        return;
+    }
+
     const char *rtttl = (direction >= 0) ? MACRO_BUZZER_RTTTL_ENCODER_CW : MACRO_BUZZER_RTTTL_ENCODER_CCW;
     esp_err_t err = buzzer_play_rtttl(rtttl);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "encoder RTTTL invalid: %s", esp_err_to_name(err));
+        return;
     }
+    s_encoder_last_enqueue_tick = now;
 }

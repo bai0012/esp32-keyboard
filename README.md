@@ -115,6 +115,7 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - startup/key/layer/encoder feedback behavior is driven by `MACRO_BUZZER_*`
   - event melodies use RTTTL strings (`name:d=,o=,b=:notes`)
   - tone playback is non-blocking and queued
+  - encoder-step beeps are throttled/coalesced to avoid long tail playback after very fast spins
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.

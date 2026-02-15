@@ -92,6 +92,7 @@ Event toggles and tones:
 - `MACRO_BUZZER_KEYPRESS_ENABLED` + `MACRO_BUZZER_RTTTL_KEYPRESS`
 - `MACRO_BUZZER_LAYER_SWITCH_ENABLED` + `MACRO_BUZZER_RTTTL_LAYER1/2/3`
 - `MACRO_BUZZER_ENCODER_STEP_ENABLED` + `MACRO_BUZZER_RTTTL_ENCODER_CW/CCW`
+- `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS` (fast-spin anti-backlog)
 
 RTTTL format used:
 - `name:d=<default_duration>,o=<default_octave>,b=<bpm>:<notes>`

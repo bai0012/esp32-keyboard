@@ -52,6 +52,7 @@
   - optional encoder-step tone
 - Event and tone parameters are configured via `MACRO_BUZZER_*` in `main/keymap_config.h`.
 - Event melodies are RTTTL strings; playback is parsed and queued at runtime.
+- Encoder-step tones are rate-limited and coalesced to avoid post-spin tail playback.
 
 ## 8) OLED Screen Protection
 - Universal pixel shifting:

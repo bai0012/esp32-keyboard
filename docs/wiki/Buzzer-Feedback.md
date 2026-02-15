@@ -40,6 +40,7 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - `MACRO_BUZZER_ENCODER_STEP_ENABLED`
   - `MACRO_BUZZER_RTTTL_ENCODER_CW`
   - `MACRO_BUZZER_RTTTL_ENCODER_CCW`
+  - `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS`
 
 ## 4) RTTTL Support
 - Event sounds are defined as RTTTL strings in config.
@@ -71,6 +72,9 @@ The buzzer uses a non-blocking queue, so sound feedback does not stall input han
   - reduce enabled event types
   - increase `MACRO_BUZZER_QUEUE_SIZE` cautiously
   - simplify RTTTL phrases
+- Encoder rotated very fast but sound keeps trailing:
+  - increase `MACRO_BUZZER_ENCODER_MIN_INTERVAL_MS`
+  - shorten encoder RTTTL note duration
 - Want silent firmware:
   - set `MACRO_BUZZER_ENABLED` to `false`
 
