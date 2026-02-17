@@ -157,12 +157,15 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_TZ`
 - `MACROPAD_HA_BASE_URL`
 - `MACROPAD_HA_BEARER_TOKEN`
+- `MACROPAD_WEB_API_KEY`
+- `MACROPAD_WEB_BASIC_AUTH_USER`
+- `MACROPAD_WEB_BASIC_AUTH_PASSWORD`
 
 If SSID is empty:
 - firmware first tries previously stored Wi-Fi credentials
 - if none exist (or if boot connect fails), captive portal fallback starts when `wifi_portal.enabled=true`
 
-Security-sensitive Home Assistant values are intentionally stored in `menuconfig`/`sdkconfig` and not in `config/keymap_config.yaml`.
+Security-sensitive Home Assistant and web-service auth values are intentionally stored in `menuconfig`/`sdkconfig` and not in `config/keymap_config.yaml`.
 
 ## 5) Related Pages
 - [OLED Display](OLED-Display)

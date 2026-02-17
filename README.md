@@ -140,6 +140,9 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_TZ`
 - `MACROPAD_HA_BASE_URL` (Home Assistant base URL)
 - `MACROPAD_HA_BEARER_TOKEN` (Home Assistant token)
+- `MACROPAD_WEB_API_KEY` (local web service API key)
+- `MACROPAD_WEB_BASIC_AUTH_USER` (local web service basic-auth username)
+- `MACROPAD_WEB_BASIC_AUTH_PASSWORD` (local web service basic-auth password)
 
 Connection behavior:
 - if menuconfig SSID/password are set, firmware tries STA at boot
@@ -150,6 +153,7 @@ Connection behavior:
 
 Security note:
 - Keep Home Assistant URL/token in `menuconfig` (sdkconfig), not in `config/keymap_config.yaml`, to avoid leaking secrets to GitHub.
+- Keep web-service API key / Basic-Auth credentials in `menuconfig` (sdkconfig), not in YAML.
 
 ## Runtime Controls
 - Encoder taps:
@@ -188,6 +192,12 @@ Security note:
     - `POST /api/v1/control/buzzer` with `{"enabled":true}`
     - `POST /api/v1/control/consumer` with `{"usage":233}`
   - service starts after Wi-Fi STA is connected and stops while captive portal is active
+  - optional authentication (configured in menuconfig):
+    - API key via `X-API-Key` header (`MACROPAD_WEB_API_KEY`)
+    - Basic Auth via `Authorization: Basic ...` (`MACROPAD_WEB_BASIC_AUTH_USER/PASSWORD`)
+    - if API key is blank, API-key auth is disabled
+    - if username or password is blank, Basic Auth is disabled
+    - if both mechanisms are configured, either one is accepted
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.

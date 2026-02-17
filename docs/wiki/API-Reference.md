@@ -215,3 +215,8 @@ Behavior/tuning reference:
 - `POST /api/v1/control/buzzer` with `{"enabled":true}`
 - `POST /api/v1/control/consumer` with `{"usage":233}`
   - control routes require `web_service.control_enabled=true`.
+
+### Authentication (menuconfig-driven)
+- API key: `MACROPAD_WEB_API_KEY` -> `X-API-Key` header
+- Basic Auth: `MACROPAD_WEB_BASIC_AUTH_USER/PASSWORD` -> `Authorization: Basic ...`
+- Blank values disable the corresponding mechanism.

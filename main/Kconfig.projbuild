@@ -38,4 +38,28 @@ config MACROPAD_HA_BEARER_TOKEN
         Long-lived access token used as Authorization: Bearer <token>.
         Keep empty to disable authenticated requests.
 
+config MACROPAD_WEB_API_KEY
+    string "Web Service API Key (X-API-Key header)"
+    default ""
+    help
+        API key required by the local web service when non-empty.
+        Sent by clients as HTTP header: X-API-Key: <value>.
+        Leave empty to disable API-key authentication.
+
+config MACROPAD_WEB_BASIC_AUTH_USER
+    string "Web Service Basic Auth Username"
+    default ""
+    help
+        Basic Auth username for local web service.
+        Basic Auth is enabled only when both username and password are non-empty.
+        Leave empty to disable Basic Auth.
+
+config MACROPAD_WEB_BASIC_AUTH_PASSWORD
+    string "Web Service Basic Auth Password"
+    default ""
+    help
+        Basic Auth password for local web service.
+        Basic Auth is enabled only when both username and password are non-empty.
+        Leave empty to disable Basic Auth.
+
 endmenu

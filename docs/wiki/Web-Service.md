@@ -79,6 +79,20 @@ This keeps the web module decoupled from input/HID logic and supports future cus
 ## 7) Security Notes
 Current implementation is LAN-local foundation with optional write routes.
 
+Auth mechanisms are configured in `menuconfig` (not YAML):
+- `MACROPAD_WEB_API_KEY`
+  - request header: `X-API-Key: <value>`
+  - disabled when blank
+- `MACROPAD_WEB_BASIC_AUTH_USER`
+- `MACROPAD_WEB_BASIC_AUTH_PASSWORD`
+  - request header: `Authorization: Basic <base64(user:pass)>`
+  - Basic Auth is enabled only when both fields are non-empty
+
+Auth policy:
+- if both mechanisms are disabled, routes are open
+- if one mechanism is enabled, that mechanism is required
+- if both are enabled, either one is accepted
+
 For production-grade control exposure in future revisions, add:
 - authentication (token/session)
 - route-level authorization

@@ -14,8 +14,11 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 
+#include "mbedtls/base64.h"
+
 #include "buzzer.h"
 #include "keymap_config.h"
+#include "sdkconfig.h"
 #include "wifi_portal.h"
 
 #define TAG "WEB_SERVICE"
@@ -23,6 +26,8 @@
 #define WEB_SERVICE_BODY_MAX 192
 #define WEB_SERVICE_JSON_BUF 640
 #define WEB_SERVICE_RETRY_MS 2000
+#define WEB_SERVICE_HEADER_MAX 256
+#define WEB_SERVICE_BASIC_EXPECTED_MAX 320
 
 typedef struct {
     bool valid;
@@ -62,6 +67,10 @@ typedef struct {
     web_service_swipe_event_t last_swipe;
     web_service_control_if_t control;
     bool control_registered;
+    bool auth_api_key_enabled;
+    bool auth_basic_enabled;
+    char api_key[WEB_SERVICE_HEADER_MAX];
+    char basic_auth_expected[WEB_SERVICE_BASIC_EXPECTED_MAX];
 } web_service_state_t;
 
 static web_service_state_t s_ws = {0};
@@ -227,10 +236,25 @@ static esp_err_t http_send_json(httpd_req_t *req, const char *status, const char
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     if (MACRO_WEB_SERVICE_CORS_ENABLED) {
         httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-        httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type,Authorization,X-API-Key");
         httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     }
     return httpd_resp_sendstr(req, json);
+}
+
+static esp_err_t http_send_options_ok(httpd_req_t *req)
+{
+    if (req == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    httpd_resp_set_status(req, "204 No Content");
+    if (MACRO_WEB_SERVICE_CORS_ENABLED) {
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type,Authorization,X-API-Key");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    }
+    return httpd_resp_send(req, NULL, 0);
 }
 
 static esp_err_t http_read_body(httpd_req_t *req, char *buf, size_t buf_size)
@@ -258,8 +282,75 @@ static esp_err_t http_read_body(httpd_req_t *req, char *buf, size_t buf_size)
     return ESP_OK;
 }
 
+static bool http_get_header_copy(httpd_req_t *req, const char *name, char *out, size_t out_size)
+{
+    if (req == NULL || name == NULL || out == NULL || out_size == 0U) {
+        return false;
+    }
+    out[0] = '\0';
+
+    const size_t len = httpd_req_get_hdr_value_len(req, name);
+    if (len == 0U || len >= out_size) {
+        return false;
+    }
+    return httpd_req_get_hdr_value_str(req, name, out, out_size) == ESP_OK;
+}
+
+static bool web_auth_api_key_match(httpd_req_t *req)
+{
+    char header_value[WEB_SERVICE_HEADER_MAX] = {0};
+    if (!http_get_header_copy(req, "X-API-Key", header_value, sizeof(header_value))) {
+        return false;
+    }
+    return strcmp(header_value, s_ws.api_key) == 0;
+}
+
+static bool web_auth_basic_match(httpd_req_t *req)
+{
+    char auth_header[WEB_SERVICE_HEADER_MAX] = {0};
+    if (!http_get_header_copy(req, "Authorization", auth_header, sizeof(auth_header))) {
+        return false;
+    }
+    return strcmp(auth_header, s_ws.basic_auth_expected) == 0;
+}
+
+static esp_err_t web_auth_guard(httpd_req_t *req)
+{
+    bool api_key_enabled = false;
+    bool basic_enabled = false;
+    web_service_lock();
+    api_key_enabled = s_ws.auth_api_key_enabled;
+    basic_enabled = s_ws.auth_basic_enabled;
+    web_service_unlock();
+
+    if (!api_key_enabled && !basic_enabled) {
+        return ESP_OK;
+    }
+
+    bool authorized = false;
+    if (api_key_enabled && web_auth_api_key_match(req)) {
+        authorized = true;
+    }
+    if (basic_enabled && web_auth_basic_match(req)) {
+        authorized = true;
+    }
+    if (authorized) {
+        return ESP_OK;
+    }
+
+    if (basic_enabled) {
+        httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"ESP32 MacroPad\"");
+    }
+    return http_send_json(req, "401 Unauthorized", "{\"ok\":false,\"error\":\"unauthorized\"}");
+}
+
 static esp_err_t health_get_handler(httpd_req_t *req)
 {
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
     char json[WEB_SERVICE_JSON_BUF] = {0};
     const uint32_t uptime_ms = (uint32_t)(pdTICKS_TO_MS(xTaskGetTickCount() - s_ws.boot_tick));
     const bool wifi_connected = wifi_portal_is_connected();
@@ -280,8 +371,18 @@ static esp_err_t health_get_handler(httpd_req_t *req)
     return http_send_json(req, "200 OK", json);
 }
 
+static esp_err_t options_handler(httpd_req_t *req)
+{
+    return http_send_options_ok(req);
+}
+
 static esp_err_t state_get_handler(httpd_req_t *req)
 {
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
     char json[WEB_SERVICE_JSON_BUF] = {0};
     char key_name_json[96] = {0};
 
@@ -354,6 +455,11 @@ static esp_err_t ensure_control_ready(httpd_req_t *req)
 
 static esp_err_t control_layer_post_handler(httpd_req_t *req)
 {
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
     esp_err_t guard = ensure_control_ready(req);
     if (guard != ESP_OK) {
         return guard;
@@ -397,6 +503,11 @@ static esp_err_t control_layer_post_handler(httpd_req_t *req)
 
 static esp_err_t control_buzzer_post_handler(httpd_req_t *req)
 {
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
     esp_err_t guard = ensure_control_ready(req);
     if (guard != ESP_OK) {
         return guard;
@@ -434,6 +545,11 @@ static esp_err_t control_buzzer_post_handler(httpd_req_t *req)
 
 static esp_err_t control_consumer_post_handler(httpd_req_t *req)
 {
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
     esp_err_t guard = ensure_control_ready(req);
     if (guard != ESP_OK) {
         return guard;
@@ -505,12 +621,47 @@ static esp_err_t register_routes(httpd_handle_t server)
         .handler = control_consumer_post_handler,
         .user_ctx = NULL,
     };
+    const httpd_uri_t health_options = {
+        .uri = "/api/v1/health",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
+    const httpd_uri_t state_options = {
+        .uri = "/api/v1/state",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
+    const httpd_uri_t layer_options = {
+        .uri = "/api/v1/control/layer",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
+    const httpd_uri_t buzzer_options = {
+        .uri = "/api/v1/control/buzzer",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
+    const httpd_uri_t consumer_options = {
+        .uri = "/api/v1/control/consumer",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
 
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_get), TAG, "register /health failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_get), TAG, "register /state failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_post), TAG, "register /control/layer failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_post), TAG, "register /control/buzzer failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_post), TAG, "register /control/consumer failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_options), TAG, "register /health options failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_options), TAG, "register /state options failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_options), TAG, "register /control/layer options failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_options), TAG, "register /control/buzzer options failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_options), TAG, "register /control/consumer options failed");
     return ESP_OK;
 }
 
@@ -574,6 +725,59 @@ static esp_err_t web_service_stop_internal(void)
     return ESP_OK;
 }
 
+static void web_service_init_auth_config(void)
+{
+    s_ws.auth_api_key_enabled = false;
+    s_ws.auth_basic_enabled = false;
+    s_ws.api_key[0] = '\0';
+    s_ws.basic_auth_expected[0] = '\0';
+
+    if (strlen(CONFIG_MACROPAD_WEB_API_KEY) > 0U) {
+        strlcpy(s_ws.api_key, CONFIG_MACROPAD_WEB_API_KEY, sizeof(s_ws.api_key));
+        s_ws.auth_api_key_enabled = true;
+    }
+
+    const bool has_basic_user = strlen(CONFIG_MACROPAD_WEB_BASIC_AUTH_USER) > 0U;
+    const bool has_basic_pass = strlen(CONFIG_MACROPAD_WEB_BASIC_AUTH_PASSWORD) > 0U;
+    if (has_basic_user && has_basic_pass) {
+        char plain[WEB_SERVICE_HEADER_MAX] = {0};
+        const int n = snprintf(plain,
+                               sizeof(plain),
+                               "%s:%s",
+                               CONFIG_MACROPAD_WEB_BASIC_AUTH_USER,
+                               CONFIG_MACROPAD_WEB_BASIC_AUTH_PASSWORD);
+        if (n <= 0 || (size_t)n >= sizeof(plain)) {
+            ESP_LOGW(TAG, "Basic Auth disabled: credential pair too long");
+            return;
+        }
+
+        unsigned char encoded[WEB_SERVICE_BASIC_EXPECTED_MAX] = {0};
+        size_t encoded_len = 0;
+        const int rc = mbedtls_base64_encode(encoded,
+                                             sizeof(encoded) - 1U,
+                                             &encoded_len,
+                                             (const unsigned char *)plain,
+                                             strlen(plain));
+        if (rc != 0 || encoded_len == 0U || encoded_len >= (sizeof(encoded) - 1U)) {
+            ESP_LOGW(TAG, "Basic Auth disabled: base64 encode failed (%d)", rc);
+            return;
+        }
+
+        encoded[encoded_len] = '\0';
+        const int m = snprintf(s_ws.basic_auth_expected,
+                               sizeof(s_ws.basic_auth_expected),
+                               "Basic %s",
+                               (const char *)encoded);
+        if (m <= 0 || (size_t)m >= sizeof(s_ws.basic_auth_expected)) {
+            ESP_LOGW(TAG, "Basic Auth disabled: header too long");
+            return;
+        }
+        s_ws.auth_basic_enabled = true;
+    } else if (has_basic_user || has_basic_pass) {
+        ESP_LOGW(TAG, "Basic Auth disabled: both username and password must be set");
+    }
+}
+
 esp_err_t web_service_init(void)
 {
     if (s_ws.initialized) {
@@ -591,12 +795,15 @@ esp_err_t web_service_init(void)
     s_ws.next_start_retry_tick = s_ws.boot_tick;
     s_ws.initialized = true;
     s_ws.active_layer = 0U;
+    web_service_init_auth_config();
 
     ESP_LOGI(TAG,
-             "ready enabled=%d port=%u control=%d",
+             "ready enabled=%d port=%u control=%d api_key=%d basic=%d",
              MACRO_WEB_SERVICE_ENABLED,
              (unsigned)MACRO_WEB_SERVICE_PORT,
-             MACRO_WEB_SERVICE_CONTROL_ENABLED);
+             MACRO_WEB_SERVICE_CONTROL_ENABLED,
+             s_ws.auth_api_key_enabled,
+             s_ws.auth_basic_enabled);
     return ESP_OK;
 }
 
