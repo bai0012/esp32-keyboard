@@ -85,7 +85,7 @@ idf.py -p <PORT> flash monitor
 
 Note:
 - On some hosts, bootloader and app enumerate on different COM ports.
-- Firmware runtime `MACROPAD` logs are gated until CDC is ready to reduce lost early lines during re-enumeration.
+- Firmware runtime `MACROPAD` logs are gated briefly while CDC comes up, then auto-fallback to normal logging.
 - Startup is not blocked waiting for CDC; input/output init and startup tone begin immediately.
 
 ## Configuration

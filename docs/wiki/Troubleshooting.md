@@ -9,7 +9,8 @@
 - Confirm USB cable/port quality.
 - Confirm HID init path ran (`macropad_usb_init`).
 - On some systems, bootloader COM port and app COM port differ (re-enumeration).
-- Firmware now delays `MACROPAD` info logs until CDC is connected, reducing lost early logs during COM switch.
+- Firmware briefly delays `MACROPAD` info logs while CDC enumerates, reducing lost early logs during COM switch.
+- After a short timeout, `MACROPAD` logs resume even if CDC is still not connected.
 - This log gating is non-blocking; if startup appears delayed, check boot animation/tone duration and not CDC readiness.
 
 ## 3) Touch Swipe Misses or False Triggers

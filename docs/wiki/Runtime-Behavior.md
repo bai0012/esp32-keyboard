@@ -3,7 +3,7 @@
 ## 1) Task Model
 - `input_task` (higher priority): scans keys/encoder/touch, sends HID reports, updates LEDs
 - `display_task`: refreshes OLED clock every 200ms
-- Runtime `MACROPAD` info logs are emitted only after TinyUSB CDC reports connected.
+- Runtime `MACROPAD` info logs are briefly gated during startup while TinyUSB CDC enumerates, then fallback to normal output.
 - Startup flow is non-blocking: boot does not wait for CDC connection before initializing subsystems.
 
 ## 2) Key Handling

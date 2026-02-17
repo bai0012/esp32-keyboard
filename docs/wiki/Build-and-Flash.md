@@ -29,7 +29,8 @@ idf.py -p <PORT> flash monitor
 
 USB enumeration note:
 - Some hosts show one COM port for bootloader and another for the app.
-- App-level `MACROPAD` logs are held until CDC is connected to avoid dropping early lines during that switch.
+- App-level `MACROPAD` logs are held briefly while CDC enumerates to avoid dropping early lines during that switch.
+- If CDC is still not connected after a short timeout, `MACROPAD` logs automatically resume.
 - Firmware startup does not wait for CDC; peripheral init and startup feedback continue immediately.
 
 ## 5) Common Build-Time Config

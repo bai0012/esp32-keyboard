@@ -46,6 +46,7 @@
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
 #define LED_STATUS_DEBOUNCE_MS 120
+#define CDC_LOG_GATE_TIMEOUT_MS 2500
 #define BOOT_ANIMATION_MAX_FRAMES 240
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
@@ -78,6 +79,8 @@ static debounce_state_t s_usb_hid_ready_db;
 static EventGroupHandle_t s_wifi_event_group;
 static bool s_sntp_started;
 static volatile TickType_t s_last_user_activity_tick = 0;
+static TickType_t s_log_gate_start_tick = 0;
+static bool s_log_gate_armed = false;
 
 static bool debounce_update(debounce_state_t *state,
                             bool raw_pressed,
@@ -86,7 +89,16 @@ static bool debounce_update(debounce_state_t *state,
 
 static inline bool cdc_log_ready(void)
 {
-    return tud_cdc_connected();
+    if (tud_cdc_connected()) {
+        return true;
+    }
+
+    if (!s_log_gate_armed) {
+        return false;
+    }
+
+    return (xTaskGetTickCount() - s_log_gate_start_tick) >=
+           pdMS_TO_TICKS(CDC_LOG_GATE_TIMEOUT_MS);
 }
 
 #define APP_LOGI(fmt, ...)            \
@@ -700,6 +712,8 @@ void app_main(void)
 {
     setenv("TZ", CONFIG_MACROPAD_TZ, 1);
     tzset();
+    s_log_gate_start_tick = xTaskGetTickCount();
+    s_log_gate_armed = true;
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
