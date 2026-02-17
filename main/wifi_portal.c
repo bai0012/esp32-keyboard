@@ -318,11 +318,13 @@ static esp_err_t start_sta_connect(wifi_config_t *cfg, bool from_portal)
         return ESP_ERR_INVALID_ARG;
     }
 
+    bool started_now = false;
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(s_portal_active ? WIFI_MODE_APSTA : WIFI_MODE_STA), TAG, "set mode failed");
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, cfg), TAG, "set sta config failed");
     if (!s_wifi_started) {
         ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "wifi start failed");
         s_wifi_started = true;
+        started_now = true;
     }
 
     xEventGroupClearBits(s_wifi_evt_group, WIFI_STA_CONNECTED_BIT | WIFI_STA_FAILED_BIT);
@@ -337,7 +339,12 @@ static esp_err_t start_sta_connect(wifi_config_t *cfg, bool from_portal)
     unlock_state();
 
     set_state(from_portal ? PORTAL_STATE_PORTAL_CONNECTING : PORTAL_STATE_STA_CONNECTING);
-    ESP_RETURN_ON_ERROR(esp_wifi_connect(), TAG, "wifi connect failed");
+    if (!started_now) {
+        esp_err_t err = esp_wifi_connect();
+        if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
+            return err;
+        }
+    }
     return ESP_OK;
 }
 
@@ -431,9 +438,12 @@ static int wifi_scan_to_options(char *out, size_t out_size)
         return 0;
     }
 
-    wifi_ap_record_t records[WIFI_PORTAL_SCAN_RESULTS];
-    memset(records, 0, sizeof(records));
+    wifi_ap_record_t *records = calloc((size_t)WIFI_PORTAL_SCAN_RESULTS, sizeof(wifi_ap_record_t));
+    if (records == NULL) {
+        return 0;
+    }
     if (esp_wifi_scan_get_ap_records(&ap_count, records) != ESP_OK || ap_count == 0U) {
+        free(records);
         return 0;
     }
 
@@ -457,19 +467,27 @@ static int wifi_scan_to_options(char *out, size_t out_size)
         used += len;
         out[used] = '\0';
     }
+    free(records);
     return (int)used;
 }
 
 static esp_err_t portal_root_handler(httpd_req_t *req)
 {
-    char options[2048] = {0};
-    char html[4096] = {0};
+    char *options = calloc(1, 3072);
+    char *html = calloc(1, 4096);
     char state_buf[64] = {0};
     char selected_ssid[33] = {0};
     char ap_ssid[33] = {0};
     char ap_ip[16] = {0};
 
-    (void)wifi_scan_to_options(options, sizeof(options));
+    if (options == NULL || html == NULL) {
+        free(options);
+        free(html);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "oom");
+        return ESP_OK;
+    }
+
+    (void)wifi_scan_to_options(options, 3072);
 
     lock_state();
     strlcpy(selected_ssid, s_selected_ssid, sizeof(selected_ssid));
@@ -480,7 +498,7 @@ static esp_err_t portal_root_handler(httpd_req_t *req)
 
     (void)snprintf(
         html,
-        sizeof(html),
+        4096,
         "<!doctype html><html><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         "<title>ESP32 MacroPad Wi-Fi Setup</title></head>"
@@ -509,6 +527,8 @@ static esp_err_t portal_root_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
+    free(options);
+    free(html);
     return ESP_OK;
 }
 
@@ -564,7 +584,7 @@ static esp_err_t start_http_server(void)
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.max_uri_handlers = 10;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
-    cfg.stack_size = 6144;
+    cfg.stack_size = 8192;
 
     ESP_RETURN_ON_ERROR(httpd_start(&s_httpd, &cfg), TAG, "httpd start failed");
 
