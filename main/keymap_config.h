@@ -51,10 +51,10 @@ typedef struct {
 static const macro_action_config_t g_macro_keymap_layers[MACRO_LAYER_COUNT][MACRO_KEY_COUNT] = {
     // Layer 1 (default)
     {
-        {GPIO_NUM_7, true, 3, MACRO_ACTION_KEYBOARD, HID_KEY_A, "K1"},
-        {GPIO_NUM_8, true, 4, MACRO_ACTION_KEYBOARD, HID_KEY_B, "K2"},
-        {GPIO_NUM_9, true, 5, MACRO_ACTION_KEYBOARD, HID_KEY_C, "K3"},
-        {GPIO_NUM_17, true, 6, MACRO_ACTION_KEYBOARD, HID_KEY_D, "K4"},
+        {GPIO_NUM_7, true, 3, MACRO_ACTION_KEYBOARD, HID_KEY_F13, "K1"},
+        {GPIO_NUM_8, true, 4, MACRO_ACTION_KEYBOARD, HID_KEY_F14, "K2"},
+        {GPIO_NUM_9, true, 5, MACRO_ACTION_KEYBOARD, HID_KEY_F15, "K3"},
+        {GPIO_NUM_17, true, 6, MACRO_ACTION_KEYBOARD, HID_KEY_F16, "K4"},
         {GPIO_NUM_18, true, 10, MACRO_ACTION_KEYBOARD, HID_KEY_F17, "K5"},
         {GPIO_NUM_12, true, 9, MACRO_ACTION_KEYBOARD, HID_KEY_F18, "K6"},
         {GPIO_NUM_13, true, 8, MACRO_ACTION_KEYBOARD, HID_KEY_F19, "K7"},
@@ -135,7 +135,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_WIFI_PORTAL_ENABLED true
 #define MACRO_WIFI_PORTAL_AP_SSID "MacroPad-Setup"
 #define MACRO_WIFI_PORTAL_AP_PASSWORD "12345678"
-#define MACRO_WIFI_PORTAL_AP_AUTH_MODE WIFI_AUTH_WPA2_PSK
+#define MACRO_WIFI_PORTAL_AP_AUTH_MODE WIFI_AUTH_WPA3_ENTERPRISE
 #define MACRO_WIFI_PORTAL_AP_CHANNEL 1
 #define MACRO_WIFI_PORTAL_AP_MAX_CONNECTIONS 4
 #define MACRO_WIFI_PORTAL_TIMEOUT_SEC 300
