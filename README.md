@@ -9,6 +9,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - Passive buzzer feedback (LEDC PWM)
 - USB HID (keyboard + consumer control)
 - Optional Wi-Fi SNTP time sync
+- Optional Home Assistant REST event bridge
 
 Hardware reference is documented in `hardware_info.md`.
 
@@ -31,6 +32,10 @@ Hardware reference is documented in `hardware_info.md`.
   - optional encoder-step tone
   - optional encoder multi-tap toggle for buzzer enable/disable, with configurable on/off tones
   - all event sounds configurable via RTTTL strings in `config/keymap_config.yaml`
+- Home Assistant integration foundation:
+  - queue-based non-blocking publish worker
+  - REST event bus publishing (`/api/events/<event_type>`)
+  - configurable event families (layer/key/encoder/touch), timeout, and retry
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
   - inactivity auto-dim and auto-off
@@ -49,8 +54,9 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
 - `main/oled.c`: OLED core driver, framebuffer primitives, UTF-8 text path, and clock scene renderer
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
+- `main/home_assistant.c`: Home Assistant event queue + REST publisher
 - `assets/animations/`: source images + manifest for OLED animations
-- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer)
+- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
 - `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
@@ -97,6 +103,7 @@ Edit `config/keymap_config.yaml`:
 - LED brightness + layer color scales (`led.*`)
 - buzzer behavior + RTTTL melodies (`buzzer.*`)
 - OLED protection and I2C speed (`oled.*`)
+- Home Assistant endpoint/publish behavior (`home_assistant.*`)
 
 Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
 
@@ -131,6 +138,10 @@ Leaving SSID empty disables Wi-Fi/SNTP.
   - startup RTTTL is streamed incrementally so long boot melodies are not truncated by queue depth
   - encoder-step beeps are throttled/coalesced to avoid long tail playback after very fast spins
   - optional encoder multi-tap can toggle buzzer state (`buzzer.encoder_toggle.*`)
+- Home Assistant:
+  - disabled by default and safe to leave unconfigured
+  - publishes selected runtime events to Home Assistant event bus
+  - current event families: `layer_switch`, `key_event`, `encoder_step`, `touch_swipe`
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
@@ -172,6 +183,7 @@ Leaving SSID empty disables Wi-Fi/SNTP.
 - Wiki sidebar/navigation: `docs/wiki/_Sidebar.md`
 - OLED deep-dive: `docs/wiki/OLED-Display.md`
 - Buzzer deep-dive: `docs/wiki/Buzzer-Feedback.md`
+- Home Assistant integration: `docs/wiki/Home-Assistant-Integration.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

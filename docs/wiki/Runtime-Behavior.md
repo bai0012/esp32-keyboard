@@ -77,3 +77,13 @@ For complete OLED behavior details and tuning guidance:
 
 For buzzer behavior details and tuning guidance:
 - [Buzzer Feedback](Buzzer-Feedback)
+
+## 9) Home Assistant Bridge (Optional)
+- Runtime events can be published asynchronously to HA REST event bus.
+- Publisher is queue-based and non-blocking for input/HID loops.
+- Configured through `home_assistant.*` in `config/keymap_config.yaml`.
+- Current event families:
+  - `layer_switch`
+  - `key_event`
+  - `encoder_step`
+  - `touch_swipe`

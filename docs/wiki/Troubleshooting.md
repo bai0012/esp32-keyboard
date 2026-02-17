@@ -47,3 +47,10 @@
 - Tune brightness groups in `config/keymap_config.yaml`:
   - `MACRO_LED_INDICATOR_BRIGHTNESS`
   - `MACRO_LED_KEY_BRIGHTNESS`
+
+## 8) Home Assistant Events Not Received
+- Confirm `home_assistant.enabled: true`.
+- Validate `home_assistant.base_url` and `home_assistant.bearer_token`.
+- Ensure event family is enabled (for example `publish_layer_switch: true`).
+- Check Home Assistant is reachable from device network/VLAN.
+- If using HTTPS, verify server cert chain is trusted by ESP-IDF CRT bundle.

@@ -61,6 +61,21 @@ def render_header(cfg: dict[str, Any]) -> str:
     touch = cfg["touch"]
     oled = cfg["oled"]
     buzzer = cfg["buzzer"]
+    ha = cfg.get("home_assistant", {
+        "enabled": False,
+        "base_url": "",
+        "bearer_token": "",
+        "device_name": "esp32-macropad",
+        "event_prefix": "macropad",
+        "request_timeout_ms": 1800,
+        "queue_size": 24,
+        "worker_interval_ms": 30,
+        "max_retry": 1,
+        "publish_layer_switch": True,
+        "publish_key_event": False,
+        "publish_encoder_step": False,
+        "publish_touch_swipe": False,
+    })
     encoder_toggle = buzzer.get("encoder_toggle", {
         "enabled": False,
         "tap_count": 5,
@@ -216,6 +231,20 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT {as_int(encoder_toggle['tap_count'], 'buzzer.encoder_toggle.tap_count')}")
     out.append(f"#define MACRO_BUZZER_RTTTL_TOGGLE_ON {c_str(str(encoder_toggle['on_rtttl']))}")
     out.append(f"#define MACRO_BUZZER_RTTTL_TOGGLE_OFF {c_str(str(encoder_toggle['off_rtttl']))}")
+    out.append("")
+    out.append(f"#define MACRO_HA_ENABLED {c_bool(ha['enabled'])}")
+    out.append(f"#define MACRO_HA_BASE_URL {c_str(str(ha['base_url']))}")
+    out.append(f"#define MACRO_HA_BEARER_TOKEN {c_str(str(ha['bearer_token']))}")
+    out.append(f"#define MACRO_HA_DEVICE_NAME {c_str(str(ha['device_name']))}")
+    out.append(f"#define MACRO_HA_EVENT_PREFIX {c_str(str(ha['event_prefix']))}")
+    out.append(f"#define MACRO_HA_REQUEST_TIMEOUT_MS {as_int(ha['request_timeout_ms'], 'home_assistant.request_timeout_ms')}")
+    out.append(f"#define MACRO_HA_QUEUE_SIZE {as_int(ha['queue_size'], 'home_assistant.queue_size')}")
+    out.append(f"#define MACRO_HA_WORKER_INTERVAL_MS {as_int(ha['worker_interval_ms'], 'home_assistant.worker_interval_ms')}")
+    out.append(f"#define MACRO_HA_MAX_RETRY {as_int(ha['max_retry'], 'home_assistant.max_retry')}")
+    out.append(f"#define MACRO_HA_PUBLISH_LAYER_SWITCH {c_bool(ha['publish_layer_switch'])}")
+    out.append(f"#define MACRO_HA_PUBLISH_KEY_EVENT {c_bool(ha['publish_key_event'])}")
+    out.append(f"#define MACRO_HA_PUBLISH_ENCODER_STEP {c_bool(ha['publish_encoder_step'])}")
+    out.append(f"#define MACRO_HA_PUBLISH_TOUCH_SWIPE {c_bool(ha['publish_touch_swipe'])}")
     out.append("")
     out.append(f"#define MACRO_TOUCH_TRIGGER_PERCENT {as_int(touch['trigger_percent'], 'touch.trigger_percent')}")
     out.append(f"#define MACRO_TOUCH_RELEASE_PERCENT {as_int(touch['release_percent'], 'touch.release_percent')}")

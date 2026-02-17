@@ -243,7 +243,10 @@ esp_err_t touch_slider_init(void)
     return ESP_OK;
 }
 
-void touch_slider_update(TickType_t now, uint8_t active_layer, touch_consumer_send_fn send_consumer)
+void touch_slider_update(TickType_t now,
+                         uint8_t active_layer,
+                         touch_consumer_send_fn send_consumer,
+                         touch_gesture_notify_fn notify_gesture)
 {
     uint32_t left_raw = 0;
     uint32_t right_raw = 0;
@@ -535,6 +538,7 @@ void touch_slider_update(TickType_t now, uint8_t active_layer, touch_consumer_se
                 }
 
                 if (usage != 0) {
+                    const bool left_to_right = crossed_l2r;
                     TOUCH_LOGI("Touch slide %s (L%u) rawL=%lu rawR=%lu dL=%lu dR=%lu usage=0x%X",
                                gesture,
                                (unsigned)active_layer + 1,
@@ -545,6 +549,9 @@ void touch_slider_update(TickType_t now, uint8_t active_layer, touch_consumer_se
                                usage);
                     if (send_consumer != NULL) {
                         send_consumer(usage);
+                    }
+                    if (notify_gesture != NULL) {
+                        notify_gesture(active_layer, left_to_right, usage);
                     }
 
                     if (hold_repeat && touch_cfg->hold_repeat_ms > 0) {

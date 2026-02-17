@@ -14,6 +14,7 @@
   - Layer switching and LED feedback
   - OLED protection policy control (shift/dim/off/invert timing)
   - Wi-Fi + SNTP init
+  - Home Assistant module event hooks
 - `main/macropad_hid.c`
   - TinyUSB descriptor and callback setup
   - Keyboard report send
@@ -35,6 +36,10 @@
   - Passive buzzer (LEDC PWM) initialization
   - Non-blocking tone queue
   - Event-tone helper APIs (startup/key/layer/encoder)
+- `main/home_assistant.c`
+  - Queue-based non-blocking publish worker
+  - Home Assistant REST event bus transport (`/api/events/<event_type>`)
+  - Retry + timeout handling for unstable network/server conditions
 
 OLED subsystem deep-dive:
 - [OLED Display](OLED-Display)
@@ -43,7 +48,8 @@ OLED subsystem deep-dive:
 1. Input signals are sampled in `input_task`.
 2. Key/encoder/touch events are mapped from `config/keymap_config.yaml` (compiled as `main/keymap_config.h`).
 3. HID reports are sent by `macropad_hid` APIs.
-4. LEDs and OLED are updated for runtime status feedback.
+4. LEDs/OLED are updated for runtime status feedback.
+5. Optional Home Assistant events are queued and published asynchronously.
 
 ## 4) Build Composition
 - `main/CMakeLists.txt` registers:
@@ -52,3 +58,4 @@ OLED subsystem deep-dive:
   - `macropad_hid.c`
   - `touch_slider.c`
   - `oled.c`
+  - `home_assistant.c`

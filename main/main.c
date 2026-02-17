@@ -27,6 +27,7 @@
 #include "sdkconfig.h"
 
 #include "buzzer.h"
+#include "home_assistant.h"
 #include "macropad_hid.h"
 #include "oled.h"
 #include "oled_animation_assets.h"
@@ -197,6 +198,7 @@ static void set_active_layer(uint8_t layer)
     s_active_layer = layer;
     APP_LOGI("Switched to Layer %u", (unsigned)s_active_layer + 1);
     buzzer_play_layer_switch(s_active_layer);
+    home_assistant_notify_layer_switch(s_active_layer);
     macropad_send_keyboard_report(s_key_pressed, s_active_layer);
 }
 
@@ -513,6 +515,11 @@ static void input_task(void *arg)
                          scan_cfg->gpio,
                          (int)active_cfg->type,
                          active_cfg->usage);
+                home_assistant_notify_key_event(s_active_layer,
+                                                (uint8_t)i,
+                                                s_key_pressed[i],
+                                                active_cfg->usage,
+                                                active_cfg->name);
 
                 if (active_cfg->type == MACRO_ACTION_KEYBOARD) {
                     keyboard_state_changed = true;
@@ -526,7 +533,10 @@ static void input_task(void *arg)
             macropad_send_keyboard_report(s_key_pressed, s_active_layer);
         }
 
-        touch_slider_update(now, s_active_layer, send_consumer_report_with_activity);
+        touch_slider_update(now,
+                           s_active_layer,
+                           send_consumer_report_with_activity,
+                           home_assistant_notify_touch_swipe);
 
         const int enc_level = gpio_get_level(EC11_GPIO_BUTTON);
         const bool enc_btn_raw = MACRO_ENCODER_BUTTON_ACTIVE_LOW ? (enc_level == 0) : (enc_level != 0);
@@ -592,6 +602,7 @@ static void input_task(void *arg)
                 g_encoder_layer_config[s_active_layer].ccw_usage;
 
             APP_LOGI("Encoder steps=%d (L%u) usage=0x%X", steps, (unsigned)s_active_layer + 1, usage);
+            home_assistant_notify_encoder_step(s_active_layer, steps, usage);
 
             for (int i = 0; i < abs(steps); ++i) {
                 send_consumer_report_with_activity(usage);
@@ -737,6 +748,12 @@ void app_main(void)
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     play_boot_animation();
     ESP_ERROR_CHECK(init_wifi_and_sntp());
+    {
+        const esp_err_t ha_err = home_assistant_init();
+        if (ha_err != ESP_OK) {
+            ESP_LOGE(TAG, "Home Assistant init failed: %s", esp_err_to_name(ha_err));
+        }
+    }
 
     xTaskCreate(display_task, "display_task", 4096, NULL, 4, NULL);
     xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL);

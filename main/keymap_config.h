@@ -157,6 +157,20 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_TOGGLE_ON "bon:d=32,o=6,b=180:g"
 #define MACRO_BUZZER_RTTTL_TOGGLE_OFF "boff:d=32,o=5,b=180:e"
 
+#define MACRO_HA_ENABLED false
+#define MACRO_HA_BASE_URL "http://homeassistant.local:8123"
+#define MACRO_HA_BEARER_TOKEN ""
+#define MACRO_HA_DEVICE_NAME "esp32-macropad"
+#define MACRO_HA_EVENT_PREFIX "macropad"
+#define MACRO_HA_REQUEST_TIMEOUT_MS 1800
+#define MACRO_HA_QUEUE_SIZE 24
+#define MACRO_HA_WORKER_INTERVAL_MS 30
+#define MACRO_HA_MAX_RETRY 1
+#define MACRO_HA_PUBLISH_LAYER_SWITCH true
+#define MACRO_HA_PUBLISH_KEY_EVENT false
+#define MACRO_HA_PUBLISH_ENCODER_STEP false
+#define MACRO_HA_PUBLISH_TOUCH_SWIPE false
+
 #define MACRO_TOUCH_TRIGGER_PERCENT 85
 #define MACRO_TOUCH_RELEASE_PERCENT 92
 #define MACRO_TOUCH_TRIGGER_MIN_DELTA 3500

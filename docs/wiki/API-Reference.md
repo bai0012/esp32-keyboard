@@ -113,3 +113,27 @@ Behavior/tuning reference:
 
 Behavior/tuning reference:
 - [Buzzer Feedback](Buzzer-Feedback)
+
+## 5) Home Assistant Module (`main/home_assistant.h`)
+
+### `esp_err_t home_assistant_init(void);`
+- Initializes Home Assistant integration worker/queue from generated config macros.
+- Safe when disabled: returns `ESP_OK` and leaves module inactive.
+
+### `bool home_assistant_is_enabled(void);`
+- Returns runtime-enabled state of Home Assistant bridge.
+
+### `void home_assistant_notify_layer_switch(uint8_t layer_index);`
+- Queues a layer-switch event when enabled by config.
+
+### `void home_assistant_notify_key_event(uint8_t layer_index, uint8_t key_index, bool pressed, uint16_t usage, const char *key_name);`
+- Queues key press/release event metadata for asynchronous publish.
+
+### `void home_assistant_notify_encoder_step(uint8_t layer_index, int32_t steps, uint16_t usage);`
+- Queues encoder step event metadata.
+
+### `void home_assistant_notify_touch_swipe(uint8_t layer_index, bool left_to_right, uint16_t usage);`
+- Queues touch swipe event metadata.
+
+### `esp_err_t home_assistant_queue_custom_event(const char *event_suffix, const char *json_payload);`
+- Extension API for future features to publish custom JSON payloads to HA event bus.
