@@ -7,9 +7,10 @@ idf_component_register(
         "touch_slider.c"
         "web_service.c"
         "oled.c"
+        "ota_manager.c"
         "wifi_portal.c"
     INCLUDE_DIRS "."
-    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client esp_http_server lwip mbedtls
+    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client esp_http_server lwip mbedtls app_update esp_https_ota
 )
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

@@ -19,6 +19,10 @@
   - 2 taps: layer 1
   - 3 taps: layer 2 (or provisioning cancel when Wi-Fi captive portal is active)
   - 4+ taps: layer 3
+- OTA verify override:
+  - when OTA is awaiting confirmation, normal multi-tap actions are suspended
+  - required tap count is `ota.confirm_tap_count` (default `3`)
+  - successful confirm finalizes firmware (cancels rollback)
 - Optional Home Assistant control shortcut:
   - configurable tap count (`home_assistant.control.tap_count`)
   - triggers one service call (`/api/services/<domain>/<service>`)
@@ -122,6 +126,18 @@ For buzzer behavior details and tuning guidance:
 - Read-only API exports runtime telemetry (`/api/v1/health`, `/api/v1/state`).
 - Optional write routes are gated by config (`web_service.control_enabled`).
 - Input loop continuously feeds layer/key/encoder/touch state into module cache.
+- OTA control/state routes are exposed under `/api/v1/system/ota` and in `/api/v1/state`.
 
 Details and route reference:
 - [Web Service](Web-Service)
+
+## 12) OTA Verification Flow
+- OTA update is started by web API (`POST /api/v1/system/ota`).
+- Download success reboots into new image.
+- New image enters `PENDING_VERIFY` state (rollback enabled).
+- Device runs auto self-check for `ota.self_check_duration_ms`.
+- OLED displays confirmation prompt.
+- If EC11 tap-count confirmation is received in time:
+  - `esp_ota_mark_app_valid_cancel_rollback()` is called.
+- If timeout expires (`ota.confirm_timeout_sec > 0`):
+  - `esp_ota_mark_app_invalid_rollback_and_reboot()` is called.

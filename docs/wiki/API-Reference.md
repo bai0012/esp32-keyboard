@@ -210,13 +210,39 @@ Behavior/tuning reference:
 - `GET /api/v1/health`
   - health + lifecycle status.
 - `GET /api/v1/state`
-  - active layer, buzzer state, idle age, latest key/encoder/swipe telemetry.
+  - active layer, buzzer state, idle age, latest key/encoder/swipe telemetry, OTA status.
+- `GET /api/v1/system/ota`
+  - OTA manager state/status snapshot.
 - `POST /api/v1/control/layer` with `{"layer":2}`
 - `POST /api/v1/control/buzzer` with `{"enabled":true}`
 - `POST /api/v1/control/consumer` with `{"usage":233}`
+- `POST /api/v1/system/ota` with optional `{"url":"https://host/fw.bin"}`
   - control routes require `web_service.control_enabled=true`.
 
 ### Authentication (menuconfig-driven)
 - API key: `MACROPAD_WEB_API_KEY` -> `X-API-Key` header
 - Basic Auth: `MACROPAD_WEB_BASIC_AUTH_USER/PASSWORD` -> `Authorization: Basic ...`
 - Blank values disable the corresponding mechanism.
+
+## 8) OTA Module (`main/ota_manager.h`)
+
+### `esp_err_t ota_manager_init(void);`
+- Initializes OTA manager state machine.
+- Detects `PENDING_VERIFY` images after OTA reboot.
+
+### `void ota_manager_poll(TickType_t now);`
+- Drives self-check and confirm-timeout state transitions.
+
+### `esp_err_t ota_manager_start_update(const char *url);`
+- Starts asynchronous HTTPS OTA download task.
+- Uses menuconfig default URL when `url==NULL` or empty.
+
+### `bool ota_manager_handle_encoder_taps(uint8_t taps);`
+- Consumes encoder multi-tap input while OTA confirm is pending.
+- Confirms firmware when tap count matches config.
+
+### `void ota_manager_get_status(ota_manager_status_t *out_status);`
+- Returns OTA state snapshot for REST/OLED integration.
+
+### `bool ota_manager_get_oled_lines(...);`
+- Returns OTA overlay text lines when OTA state should override normal display scene.

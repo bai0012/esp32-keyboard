@@ -12,6 +12,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - Captive portal provisioning fallback (AP + web UI + credential persistence)
 - Optional Home Assistant REST event bridge
 - Local web service foundation (future web UI / local API integration)
+- OTA update manager with rollback-safe post-update verification
 
 Hardware reference is documented in `hardware_info.md`.
 
@@ -44,8 +45,14 @@ Hardware reference is documented in `hardware_info.md`.
 - Local web service foundation:
   - versioned REST base (`/api/v1/*`)
   - runtime state endpoints for health and input/layer telemetry
-  - optional control endpoints (layer/buzzer/consumer) gated by config
+  - optional control endpoints (layer/buzzer/consumer/system/ota) gated by config
   - auto lifecycle: starts only when STA is connected and captive portal is inactive
+- OTA update workflow:
+  - API-triggered firmware download (`/api/v1/system/ota`)
+  - rollback-aware first boot (`PENDING_VERIFY`)
+  - automatic post-update self-check
+  - EC11 multi-tap confirmation (default: 3 taps) before finalizing update
+  - configurable confirmation timeout with automatic rollback on timeout
 - Wi-Fi provisioning fallback:
   - AP + captive portal web UI when credentials are missing or STA boot connect fails
   - persisted STA credentials (stored in Wi-Fi flash/NVS)
@@ -72,8 +79,10 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/home_assistant.c`: Home Assistant event queue + REST publisher
 - `main/wifi_portal.c`: Wi-Fi STA boot connect + captive portal provisioning fallback
 - `main/web_service.c`: local REST web service module and control interface
+- `main/ota_manager.c`: OTA download/verification state machine and rollback confirm flow
 - `assets/animations/`: source images + manifest for OLED animations
 - `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant/wifi_portal/web_service)
+- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant/wifi_portal/web_service/ota)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
 - `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
@@ -124,6 +133,7 @@ Edit `config/keymap_config.yaml`:
 - Home Assistant runtime publish behavior (`home_assistant.*`)
 - Captive portal behavior (`wifi_portal.*`)
 - Local web service behavior (`web_service.*`)
+- OTA verification behavior (`ota.*`)
 
 Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
 
@@ -143,6 +153,8 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_WEB_API_KEY` (local web service API key)
 - `MACROPAD_WEB_BASIC_AUTH_USER` (local web service basic-auth username)
 - `MACROPAD_WEB_BASIC_AUTH_PASSWORD` (local web service basic-auth password)
+- `MACROPAD_OTA_DEFAULT_URL` (optional default OTA URL used by API-triggered OTA when request URL is omitted)
+- `MACROPAD_OTA_HTTP_TIMEOUT_MS` (OTA HTTP timeout)
 
 Connection behavior:
 - if menuconfig SSID/password are set, firmware tries STA at boot
@@ -161,6 +173,9 @@ Security note:
   - 2 taps: switch to layer 1
   - 3 taps: switch to layer 2 (or cancel Wi-Fi provisioning when captive portal is active)
   - 4+ taps: switch to layer 3
+  - OTA verify mode override:
+    - while OTA is waiting confirmation, normal tap actions are suspended
+    - press EC11 `ota.confirm_tap_count` times (default 3) to confirm and finalize OTA image
 - Wi-Fi captive portal:
   - AP name/password/auth/timeout/scan size are configurable in `wifi_portal.*`
   - web UI provides AP scan + SSID/password connect form
@@ -191,6 +206,10 @@ Security note:
     - `POST /api/v1/control/layer` with `{"layer":2}` (1-based layer index)
     - `POST /api/v1/control/buzzer` with `{"enabled":true}`
     - `POST /api/v1/control/consumer` with `{"usage":233}`
+    - `POST /api/v1/system/ota` with optional `{"url":"https://host/path/fw.bin"}`
+  - OTA status endpoint:
+    - `GET /api/v1/system/ota`
+    - `/api/v1/state` also includes nested `ota` status object
   - service starts after Wi-Fi STA is connected and stops while captive portal is active
   - optional authentication (configured in menuconfig):
     - API key via `X-API-Key` header (`MACROPAD_WEB_API_KEY`)
@@ -198,6 +217,12 @@ Security note:
     - if API key is blank, API-key auth is disabled
     - if username or password is blank, Basic Auth is disabled
     - if both mechanisms are configured, either one is accepted
+- OTA post-update verification:
+  - new OTA image boots in pending-verify state (rollback enabled)
+  - firmware runs self-check for `ota.self_check_duration_ms`
+  - OLED shows confirmation prompt
+  - EC11 multi-tap confirm finalizes firmware
+  - if `ota.confirm_timeout_sec` expires (non-zero), firmware rolls back automatically
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
@@ -245,6 +270,7 @@ Security note:
 - Home Assistant integration: `docs/wiki/Home-Assistant-Integration.md`
 - Wi-Fi provisioning/captive portal: `docs/wiki/Wi-Fi-Provisioning.md`
 - Web service API foundation: `docs/wiki/Web-Service.md`
+- OTA update and verification flow: `docs/wiki/OTA-Update.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

@@ -29,6 +29,7 @@
 #include "macropad_hid.h"
 #include "oled.h"
 #include "oled_animation_assets.h"
+#include "ota_manager.h"
 #include "touch_slider.h"
 #include "wifi_portal.h"
 #include "web_service.h"
@@ -559,7 +560,10 @@ static void input_task(void *arg)
             const uint8_t taps = s_encoder_tap_count;
             s_encoder_tap_count = 0;
 
-            if (MACRO_HA_CONTROL_ENABLED &&
+            if (ota_manager_handle_encoder_taps(taps)) {
+                s_encoder_single_pending = false;
+                mark_user_activity(now);
+            } else if (MACRO_HA_CONTROL_ENABLED &&
                 taps == (uint8_t)MACRO_HA_CONTROL_TAP_COUNT) {
                 s_encoder_single_pending = false;
                 const esp_err_t ha_err = home_assistant_trigger_default_control();
@@ -635,6 +639,7 @@ static void input_task(void *arg)
         }
 
         buzzer_update(now);
+        ota_manager_poll(now);
         wifi_portal_poll();
         web_service_poll();
 
@@ -731,12 +736,24 @@ static void display_task(void *arg)
         }
 
         if (display_enabled) {
+            char ota_l0[48] = {0};
+            char ota_l1[48] = {0};
+            char ota_l2[48] = {0};
+            char ota_l3[48] = {0};
             char portal_l0[48] = {0};
             char portal_l1[48] = {0};
             char portal_l2[48] = {0};
             char portal_l3[48] = {0};
             char ha_line[96] = {0};
             uint32_t ha_age_ms = 0;
+            const bool ota_overlay = ota_manager_get_oled_lines(ota_l0,
+                                                                sizeof(ota_l0),
+                                                                ota_l1,
+                                                                sizeof(ota_l1),
+                                                                ota_l2,
+                                                                sizeof(ota_l2),
+                                                                ota_l3,
+                                                                sizeof(ota_l3));
             const bool portal_active = wifi_portal_get_oled_lines(portal_l0,
                                                                   sizeof(portal_l0),
                                                                   portal_l1,
@@ -749,7 +766,9 @@ static void display_task(void *arg)
                 home_assistant_get_display_text(ha_line, sizeof(ha_line), &ha_age_ms) &&
                 (ha_age_ms <= HA_DISPLAY_STALE_MS);
             esp_err_t err = ESP_OK;
-            if (portal_active) {
+            if (ota_overlay) {
+                err = oled_render_text_lines(ota_l0, ota_l1, ota_l2, ota_l3, shift_x, shift_y);
+            } else if (portal_active) {
                 err = oled_render_text_lines(portal_l0, portal_l1, portal_l2, portal_l3, shift_x, shift_y);
             } else {
                 err = has_ha_text
@@ -789,6 +808,7 @@ void app_main(void)
     ESP_ERROR_CHECK(buzzer_init());
     buzzer_play_startup();
     ESP_ERROR_CHECK(oled_init());
+    ESP_ERROR_CHECK(ota_manager_init());
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     play_boot_animation();
     ESP_ERROR_CHECK(wifi_portal_init());

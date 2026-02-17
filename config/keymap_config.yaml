@@ -315,3 +315,21 @@ web_service:
   cors_enabled: true
   # Enables write/control routes (layer/buzzer/consumer); keep false unless needed.
   control_enabled: false
+
+# OTA update workflow.
+# - OTA starts from local API: POST /api/v1/system/ota
+# - New firmware boots as PENDING_VERIFY (rollback enabled by sdkconfig defaults).
+# - Device runs self-check, then requires encoder multi-tap confirmation.
+# - If confirmation times out, firmware is marked invalid and auto-rolls back.
+ota:
+  # Master OTA feature switch.
+  enabled: true
+  # Number of EC11 taps required to confirm a newly booted OTA image.
+  confirm_tap_count: 3
+  # Confirmation timeout after self-check completes.
+  # 0 = wait forever (no timeout rollback).
+  confirm_timeout_sec: 120
+  # Duration for automated self-check before prompt appears.
+  self_check_duration_ms: 2000
+  # Self-check lower bound for free heap bytes.
+  self_check_min_heap_bytes: 65536

@@ -10,6 +10,7 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - Wi-Fi fallback: captive portal provisioning (SoftAP + web UI + credential persistence)
 - Optional integration bridge: Home Assistant REST event bus
 - Local web service foundation: versioned REST endpoints for future UI/automation
+- OTA update manager: API-triggered download + post-update self-check + confirm/rollback
 - OLED protection: pixel shift, inactivity dim/off, hourly inversion
 - OLED animation pipeline: build-time conversion from `assets/animations/*` to generated C assets
 
@@ -25,9 +26,10 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 9. [API Reference](API-Reference)
 10. [Home Assistant Integration](Home-Assistant-Integration)
 11. [Web Service](Web-Service)
-12. [Development Workflow](Development-Workflow)
-13. [Troubleshooting](Troubleshooting)
-14. [Documentation Policy](Documentation-Policy)
+12. [OTA Update](OTA-Update)
+13. [Development Workflow](Development-Workflow)
+14. [Troubleshooting](Troubleshooting)
+15. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP
@@ -38,5 +40,6 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - `main/home_assistant.c`: queue-based Home Assistant REST event publisher
 - `main/wifi_portal.c`: STA boot connect + captive portal provisioning fallback
 - `main/web_service.c`: local REST API server, runtime state endpoint, future control hooks
+- `main/ota_manager.c`: OTA state machine, self-check, confirmation, rollback integration
 - `config/keymap_config.yaml`: source-of-truth layers, mappings, and tuning constants
 - `main/keymap_config.h`: generated config header used by firmware build

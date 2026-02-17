@@ -138,7 +138,12 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `web_service.recv_timeout_sec` | `5` | Receive timeout for request body reads. |
 | `web_service.send_timeout_sec` | `5` | Send timeout for response writes. |
 | `web_service.cors_enabled` | `true` | Adds permissive CORS headers for browser-based tools. |
-| `web_service.control_enabled` | `false` | Enables write/control routes (`layer/buzzer/consumer`). |
+| `web_service.control_enabled` | `false` | Enables write/control routes (`layer/buzzer/consumer/system/ota`). |
+| `ota.enabled` | `true` | Master OTA workflow switch. |
+| `ota.confirm_tap_count` | `3` | Required EC11 tap count to confirm pending OTA firmware. |
+| `ota.confirm_timeout_sec` | `120` | Timeout before forced rollback (`0` disables timeout). |
+| `ota.self_check_duration_ms` | `2000` | Time spent in automated self-check phase before prompt. |
+| `ota.self_check_min_heap_bytes` | `65536` | Self-check free-heap lower bound. |
 
 ## 3) Validation Rules
 - `counts.layer` must equal:
@@ -160,6 +165,8 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_WEB_API_KEY`
 - `MACROPAD_WEB_BASIC_AUTH_USER`
 - `MACROPAD_WEB_BASIC_AUTH_PASSWORD`
+- `MACROPAD_OTA_DEFAULT_URL`
+- `MACROPAD_OTA_HTTP_TIMEOUT_MS`
 
 If SSID is empty:
 - firmware first tries previously stored Wi-Fi credentials

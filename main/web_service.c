@@ -18,13 +18,14 @@
 
 #include "buzzer.h"
 #include "keymap_config.h"
+#include "ota_manager.h"
 #include "sdkconfig.h"
 #include "wifi_portal.h"
 
 #define TAG "WEB_SERVICE"
 
-#define WEB_SERVICE_BODY_MAX 192
-#define WEB_SERVICE_JSON_BUF 640
+#define WEB_SERVICE_BODY_MAX 512
+#define WEB_SERVICE_JSON_BUF 1024
 #define WEB_SERVICE_RETRY_MS 2000
 #define WEB_SERVICE_HEADER_MAX 256
 #define WEB_SERVICE_BASIC_EXPECTED_MAX 320
@@ -225,6 +226,43 @@ static bool parse_json_bool(const char *json, const char *key, bool *out)
     return false;
 }
 
+static bool parse_json_string(const char *json, const char *key, char *out, size_t out_size)
+{
+    if (json == NULL || key == NULL || out == NULL || out_size == 0U) {
+        return false;
+    }
+    out[0] = '\0';
+
+    char token[48] = {0};
+    (void)snprintf(token, sizeof(token), "\"%s\"", key);
+    const char *p = strstr(json, token);
+    if (p == NULL) {
+        return false;
+    }
+    p = strchr(p, ':');
+    if (p == NULL) {
+        return false;
+    }
+    ++p;
+    while (*p != '\0' && isspace((int)(unsigned char)*p)) {
+        ++p;
+    }
+    if (*p != '"') {
+        return false;
+    }
+    ++p;
+
+    size_t w = 0;
+    while (*p != '\0' && *p != '"' && (w + 1U) < out_size) {
+        if (*p == '\\' && p[1] != '\0') {
+            ++p;
+        }
+        out[w++] = *p++;
+    }
+    out[w] = '\0';
+    return true;
+}
+
 static esp_err_t http_send_json(httpd_req_t *req, const char *status, const char *json)
 {
     if (req == NULL || status == NULL || json == NULL) {
@@ -344,6 +382,40 @@ static esp_err_t web_auth_guard(httpd_req_t *req)
     return http_send_json(req, "401 Unauthorized", "{\"ok\":false,\"error\":\"unauthorized\"}");
 }
 
+static int build_ota_status_json(char *dst, size_t dst_size)
+{
+    ota_manager_status_t ota = {0};
+    char ota_url_json[256] = {0};
+    char ota_error_json[128] = {0};
+
+    if (dst == NULL || dst_size == 0U) {
+        return -1;
+    }
+
+    ota_manager_get_status(&ota);
+    json_escape_copy(ota_url_json, sizeof(ota_url_json), ota.current_url);
+    json_escape_copy(ota_error_json, sizeof(ota_error_json), ota.last_error);
+
+    return snprintf(dst,
+                    dst_size,
+                    "\"ota\":{\"enabled\":%s,\"state\":\"%s\",\"pending_verify\":%s,"
+                    "\"confirm_tap_count\":%u,\"self_check_duration_ms\":%" PRIu32 ","
+                    "\"self_check_elapsed_ms\":%" PRIu32 ",\"confirm_timeout_ms\":%" PRIu32 ","
+                    "\"confirm_remaining_ms\":%" PRIu32 ",\"self_check_free_heap\":%" PRIu32 ","
+                    "\"current_url\":\"%s\",\"last_error\":\"%s\"}",
+                    ota.enabled ? "true" : "false",
+                    ota_manager_state_name(ota.state),
+                    ota.pending_verify ? "true" : "false",
+                    (unsigned)ota.confirm_tap_count,
+                    ota.self_check_duration_ms,
+                    ota.self_check_elapsed_ms,
+                    ota.confirm_timeout_ms,
+                    ota.confirm_remaining_ms,
+                    ota.self_check_free_heap_bytes,
+                    ota_url_json,
+                    ota_error_json);
+}
+
 static esp_err_t health_get_handler(httpd_req_t *req)
 {
     esp_err_t auth = web_auth_guard(req);
@@ -384,6 +456,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     }
 
     char json[WEB_SERVICE_JSON_BUF] = {0};
+    char ota_json[384] = {0};
     char key_name_json[96] = {0};
 
     web_service_lock();
@@ -400,6 +473,10 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     const uint32_t key_age_ms = key_event.valid ? (uint32_t)pdTICKS_TO_MS(now - key_event.tick) : 0U;
     const uint32_t encoder_age_ms = encoder_event.valid ? (uint32_t)pdTICKS_TO_MS(now - encoder_event.tick) : 0U;
     const uint32_t swipe_age_ms = swipe_event.valid ? (uint32_t)pdTICKS_TO_MS(now - swipe_event.tick) : 0U;
+    const int ota_n = build_ota_status_json(ota_json, sizeof(ota_json));
+    if (ota_n <= 0 || (size_t)ota_n >= sizeof(ota_json)) {
+        return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"ota encode\"}");
+    }
 
     const int n = snprintf(
         json,
@@ -410,7 +487,8 @@ static esp_err_t state_get_handler(httpd_req_t *req)
         "\"idle_ms\":%" PRIu32 ","
         "\"last_key\":{\"valid\":%s,\"index\":%u,\"pressed\":%s,\"usage\":%u,\"name\":\"%s\",\"age_ms\":%" PRIu32 "},"
         "\"last_encoder\":{\"valid\":%s,\"steps\":%" PRId32 ",\"usage\":%u,\"age_ms\":%" PRIu32 "},"
-        "\"last_swipe\":{\"valid\":%s,\"layer_index\":%u,\"left_to_right\":%s,\"usage\":%u,\"age_ms\":%" PRIu32 "}}",
+        "\"last_swipe\":{\"valid\":%s,\"layer_index\":%u,\"left_to_right\":%s,\"usage\":%u,\"age_ms\":%" PRIu32 "},"
+        "%s}",
         (unsigned)active_layer,
         (unsigned)active_layer + 1U,
         buzzer_is_enabled() ? "true" : "false",
@@ -429,10 +507,33 @@ static esp_err_t state_get_handler(httpd_req_t *req)
         (unsigned)swipe_event.layer_index,
         swipe_event.left_to_right ? "true" : "false",
         (unsigned)swipe_event.usage,
-        swipe_age_ms);
+        swipe_age_ms,
+        ota_json);
     if (n <= 0 || (size_t)n >= sizeof(json)) {
         return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"encode\"}");
     }
+    return http_send_json(req, "200 OK", json);
+}
+
+static esp_err_t ota_get_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    char ota_json[384] = {0};
+    char json[WEB_SERVICE_JSON_BUF] = {0};
+    const int ota_n = build_ota_status_json(ota_json, sizeof(ota_json));
+    if (ota_n <= 0 || (size_t)ota_n >= sizeof(ota_json)) {
+        return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"ota encode\"}");
+    }
+
+    const int n = snprintf(json, sizeof(json), "{\"ok\":true,%s}", ota_json);
+    if (n <= 0 || (size_t)n >= sizeof(json)) {
+        return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"encode\"}");
+    }
+
     return http_send_json(req, "200 OK", json);
 }
 
@@ -451,6 +552,49 @@ static esp_err_t ensure_control_ready(httpd_req_t *req)
                               "{\"ok\":false,\"error\":\"control interface missing\"}");
     }
     return ESP_OK;
+}
+
+static esp_err_t ota_post_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    esp_err_t guard = ensure_control_ready(req);
+    if (guard != ESP_OK) {
+        return guard;
+    }
+
+    char body[WEB_SERVICE_BODY_MAX] = {0};
+    if (http_read_body(req, body, sizeof(body)) != ESP_OK) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"invalid body\"}");
+    }
+
+    char url[WEB_SERVICE_HEADER_MAX] = {0};
+    const bool has_url = parse_json_string(body, "url", url, sizeof(url));
+
+    const esp_err_t err = ota_manager_start_update(has_url ? url : NULL);
+    if (err == ESP_ERR_INVALID_ARG) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"missing or invalid ota url\"}");
+    }
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+        return http_send_json(req, "403 Forbidden",
+                              "{\"ok\":false,\"error\":\"ota not supported or url not https\"}");
+    }
+    if (err == ESP_ERR_INVALID_STATE) {
+        return http_send_json(req, "409 Conflict",
+                              "{\"ok\":false,\"error\":\"ota busy or pending verify\"}");
+    }
+    if (err != ESP_OK) {
+        return http_send_json(req, "500 Internal Server Error",
+                              "{\"ok\":false,\"error\":\"ota start failed\"}");
+    }
+
+    web_service_mark_user_activity();
+    return http_send_json(req, "202 Accepted", "{\"ok\":true,\"status\":\"started\"}");
 }
 
 static esp_err_t control_layer_post_handler(httpd_req_t *req)
@@ -621,6 +765,18 @@ static esp_err_t register_routes(httpd_handle_t server)
         .handler = control_consumer_post_handler,
         .user_ctx = NULL,
     };
+    const httpd_uri_t ota_get = {
+        .uri = "/api/v1/system/ota",
+        .method = HTTP_GET,
+        .handler = ota_get_handler,
+        .user_ctx = NULL,
+    };
+    const httpd_uri_t ota_post = {
+        .uri = "/api/v1/system/ota",
+        .method = HTTP_POST,
+        .handler = ota_post_handler,
+        .user_ctx = NULL,
+    };
     const httpd_uri_t health_options = {
         .uri = "/api/v1/health",
         .method = HTTP_OPTIONS,
@@ -651,17 +807,26 @@ static esp_err_t register_routes(httpd_handle_t server)
         .handler = options_handler,
         .user_ctx = NULL,
     };
+    const httpd_uri_t ota_options = {
+        .uri = "/api/v1/system/ota",
+        .method = HTTP_OPTIONS,
+        .handler = options_handler,
+        .user_ctx = NULL,
+    };
 
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_get), TAG, "register /health failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_get), TAG, "register /state failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_post), TAG, "register /control/layer failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_post), TAG, "register /control/buzzer failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_post), TAG, "register /control/consumer failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_get), TAG, "register /system/ota GET failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_post), TAG, "register /system/ota POST failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_options), TAG, "register /health options failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_options), TAG, "register /state options failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_options), TAG, "register /control/layer options failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_options), TAG, "register /control/buzzer options failed");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_options), TAG, "register /control/consumer options failed");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_options), TAG, "register /system/ota options failed");
     return ESP_OK;
 }
 

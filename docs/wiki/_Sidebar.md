@@ -8,6 +8,7 @@
 - [Buzzer Feedback](Buzzer-Feedback)
 - [Home Assistant Integration](Home-Assistant-Integration)
 - [Web Service](Web-Service)
+- [OTA Update](OTA-Update)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [API Reference](API-Reference)
 - [Development Workflow](Development-Workflow)

@@ -54,6 +54,11 @@
   - Runtime state cache for layer/key/encoder/touch telemetry
   - Optional control interface callbacks (layer/buzzer/consumer)
   - Lifecycle manager: run only when STA is connected and captive portal is inactive
+- `main/ota_manager.c`
+  - OTA download trigger and worker (`esp_https_ota`)
+  - Post-update pending-verify detection (`esp_ota_get_state_partition`)
+  - Automated self-check stage + OLED status export
+  - EC11 confirm-gate and timeout-driven rollback path
 
 OLED subsystem deep-dive:
 - [OLED Display](OLED-Display)
@@ -68,6 +73,7 @@ OLED subsystem deep-dive:
 7. Optional Home Assistant service actions are queued from runtime shortcuts.
 8. Wi-Fi provisioning module manages STA boot connect and captive fallback as needed.
 9. Web service module exposes read-only runtime state and optional control routes for future local integrations.
+10. OTA manager handles update download and post-update verify/confirm/rollback lifecycle.
 
 ## 4) Build Composition
 - `main/CMakeLists.txt` registers:
@@ -79,3 +85,4 @@ OLED subsystem deep-dive:
   - `home_assistant.c`
   - `wifi_portal.c`
   - `web_service.c`
+  - `ota_manager.c`

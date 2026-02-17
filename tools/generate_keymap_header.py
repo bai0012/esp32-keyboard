@@ -110,6 +110,13 @@ def render_header(cfg: dict[str, Any]) -> str:
         "cors_enabled": True,
         "control_enabled": False,
     })
+    ota = cfg.get("ota", {
+        "enabled": True,
+        "confirm_tap_count": 3,
+        "confirm_timeout_sec": 120,
+        "self_check_duration_ms": 2000,
+        "self_check_min_heap_bytes": 65536,
+    })
     encoder_toggle = buzzer.get("encoder_toggle", {
         "enabled": False,
         "tap_count": 5,
@@ -310,6 +317,12 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_WEB_SERVICE_SEND_TIMEOUT_SEC {as_int(web_service.get('send_timeout_sec', 5), 'web_service.send_timeout_sec')}")
     out.append(f"#define MACRO_WEB_SERVICE_CORS_ENABLED {c_bool(web_service.get('cors_enabled', True))}")
     out.append(f"#define MACRO_WEB_SERVICE_CONTROL_ENABLED {c_bool(web_service.get('control_enabled', False))}")
+    out.append("")
+    out.append(f"#define MACRO_OTA_ENABLED {c_bool(ota.get('enabled', True))}")
+    out.append(f"#define MACRO_OTA_CONFIRM_TAP_COUNT {as_int(ota.get('confirm_tap_count', 3), 'ota.confirm_tap_count')}")
+    out.append(f"#define MACRO_OTA_CONFIRM_TIMEOUT_SEC {as_int(ota.get('confirm_timeout_sec', 120), 'ota.confirm_timeout_sec')}")
+    out.append(f"#define MACRO_OTA_SELF_CHECK_DURATION_MS {as_int(ota.get('self_check_duration_ms', 2000), 'ota.self_check_duration_ms')}")
+    out.append(f"#define MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES {as_int(ota.get('self_check_min_heap_bytes', 65536), 'ota.self_check_min_heap_bytes')}")
     out.append("")
     out.append(f"#define MACRO_TOUCH_TRIGGER_PERCENT {as_int(touch['trigger_percent'], 'touch.trigger_percent')}")
     out.append(f"#define MACRO_TOUCH_RELEASE_PERCENT {as_int(touch['release_percent'], 'touch.release_percent')}")

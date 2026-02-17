@@ -38,6 +38,9 @@ Base prefix: `/api/v1`
     - buzzer enabled state
     - idle age
     - latest key/encoder/swipe telemetry
+    - nested OTA state object
+- `GET /api/v1/system/ota`
+  - Returns OTA manager state/status snapshot.
 
 ### Optional control routes
 Control routes are available only when:
@@ -51,6 +54,10 @@ Routes:
   - body: `{"enabled":true}`
 - `POST /api/v1/control/consumer`
   - body: `{"usage":233}`
+- `POST /api/v1/system/ota`
+  - body (optional): `{"url":"https://host/path/fw.bin"}`
+  - if URL is omitted, menuconfig default URL is used
+  - OTA route also requires control enable
 
 If control is disabled, routes return `403`.
 
@@ -76,7 +83,14 @@ These values are generated into `main/keymap_config.h` as `MACRO_WEB_SERVICE_*`.
 
 This keeps the web module decoupled from input/HID logic and supports future custom actions.
 
-## 7) Security Notes
+## 7) OTA Integration
+- Web service is the runtime trigger interface for OTA downloads.
+- OTA status is surfaced in both:
+  - `GET /api/v1/system/ota`
+  - `GET /api/v1/state` (`ota` object)
+- Post-update confirmation itself is intentionally local-only (EC11 multi-tap), not web-confirmed.
+
+## 8) Security Notes
 Current implementation is LAN-local foundation with optional write routes.
 
 Auth mechanisms are configured in `menuconfig` (not YAML):
@@ -99,7 +113,7 @@ For production-grade control exposure in future revisions, add:
 - rate limiting / brute-force protection
 - optional HTTPS/reverse-proxy termination
 
-## 8) Validation Checklist
+## 9) Validation Checklist
 1. Device connects to Wi-Fi STA.
 2. Confirm `GET /api/v1/health` responds on configured port.
 3. Confirm `GET /api/v1/state` updates after key/encoder/touch activity.
@@ -107,3 +121,4 @@ For production-grade control exposure in future revisions, add:
    - layer switch via `POST /control/layer`
    - buzzer on/off via `POST /control/buzzer`
 5. Enter captive portal mode and confirm web service stops automatically.
+6. Trigger OTA with `POST /api/v1/system/ota` and verify state transitions in `/state`.
