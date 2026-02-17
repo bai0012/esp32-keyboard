@@ -135,8 +135,9 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 
 Connection behavior:
 - if menuconfig SSID/password are set, firmware tries STA at boot
-- if menuconfig SSID is empty, firmware tries previously stored Wi-Fi credentials
-- if no credentials are available, or boot STA connect fails, captive portal provisioning starts (when `wifi_portal.enabled=true`)
+- if that boot attempt fails, firmware automatically tries previously stored Wi-Fi credentials (if available)
+- if menuconfig SSID is empty, firmware tries previously stored Wi-Fi credentials first
+- if no credentials are available, or all boot attempts fail, captive portal provisioning starts (when `wifi_portal.enabled=true`)
 - credentials submitted from captive portal are stored in Wi-Fi flash storage (NVS) and reused next boot
 
 Security note:

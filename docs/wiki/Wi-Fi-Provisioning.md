@@ -13,8 +13,9 @@ Primary source:
 
 ## 2) Boot Decision Flow
 1. If `CONFIG_MACROPAD_WIFI_SSID` is set in `menuconfig`, use it first.
-2. Otherwise, try stored credentials from Wi-Fi flash storage.
-3. If no credentials are available, or boot STA connect fails/times out, start captive portal when `wifi_portal.enabled=true`.
+2. If that attempt fails, try stored credentials from Wi-Fi flash storage (if present and different).
+3. If menuconfig SSID is empty, try stored credentials directly.
+4. If no credentials are available, or boot STA connect attempts fail/times out, start captive portal when `wifi_portal.enabled=true`.
 
 ## 3) Captive Portal Runtime
 - Starts SoftAP with configured SSID/password/auth mode.
@@ -24,6 +25,7 @@ Primary source:
   - submit SSID + password
   - trigger STA connect from selected network
 - On `IP_EVENT_STA_GOT_IP`, portal auto-stops and firmware returns to STA mode.
+- Boot connect is non-blocking for app startup, so boot animation/input tasks are not held by connect timeout waits.
 
 ## 4) OLED Behavior During Provisioning
 When portal is active, OLED switches from clock scene to status scene:
@@ -61,7 +63,8 @@ Related `menuconfig` options:
 
 ## 7) Persistence Model
 - Credentials submitted from portal are written via Wi-Fi config APIs with flash storage enabled.
-- Stored credentials are reused automatically on next boot when menuconfig SSID is empty.
+- Stored credentials are reused automatically on next boot.
+- Even when menuconfig SSID is set, firmware can fall back to stored credentials if the menuconfig network fails.
 
 ## 8) Security Notes
 - For private provisioning AP, use WPA2 mode and `8+` character password.

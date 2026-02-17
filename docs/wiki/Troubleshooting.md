@@ -33,6 +33,7 @@
 ## 6) Captive Portal Not Appearing
 - Confirm `wifi_portal.enabled: true` in `config/keymap_config.yaml`.
 - Confirm boot STA connect really failed or no credentials exist.
+- If menuconfig SSID is set but wrong, firmware should now try stored credentials before opening portal.
 - Check AP auth/password settings:
   - WPA2 requires password length >= 8.
   - If auth/password mismatch is configured, firmware may force OPEN mode.

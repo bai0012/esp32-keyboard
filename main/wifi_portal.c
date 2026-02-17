@@ -68,8 +68,13 @@ static bool s_cancelled;
 static bool s_timed_out;
 static bool s_using_saved_credentials;
 static uint8_t s_retry_count;
+static bool s_boot_connect_in_progress;
+static bool s_boot_saved_fallback_pending;
+static bool s_boot_saved_fallback_attempted;
+static TickType_t s_sta_attempt_start_tick;
 static TickType_t s_portal_start_tick;
 static portal_state_t s_state;
+static wifi_config_t s_boot_saved_cfg;
 
 static char s_ap_ssid[33];
 static char s_selected_ssid[33];
@@ -134,6 +139,15 @@ static bool get_saved_sta_credentials(wifi_config_t *out_cfg)
         return false;
     }
     return out_cfg->sta.ssid[0] != '\0';
+}
+
+static bool wifi_cfg_sta_same(const wifi_config_t *a, const wifi_config_t *b)
+{
+    if (a == NULL || b == NULL) {
+        return false;
+    }
+    return (strncmp((const char *)a->sta.ssid, (const char *)b->sta.ssid, sizeof(a->sta.ssid)) == 0) &&
+           (strncmp((const char *)a->sta.password, (const char *)b->sta.password, sizeof(a->sta.password)) == 0);
 }
 
 static bool auth_mode_valid_for_password(wifi_auth_mode_t mode, const char *password)
@@ -335,6 +349,7 @@ static esp_err_t start_sta_connect(wifi_config_t *cfg, bool from_portal)
     s_stop_portal_requested = false;
     s_cancelled = false;
     s_timed_out = false;
+    s_sta_attempt_start_tick = xTaskGetTickCount();
     strlcpy(s_selected_ssid, (const char *)cfg->sta.ssid, sizeof(s_selected_ssid));
     unlock_state();
 
@@ -385,9 +400,6 @@ static esp_err_t portal_stop_internal(bool cancelled, bool timed_out)
     unlock_state();
 
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "set sta mode failed");
-    if (s_connected) {
-        (void)esp_wifi_connect();
-    }
 
     set_state(s_connected ? PORTAL_STATE_CONNECTED : PORTAL_STATE_IDLE);
     return ESP_OK;
@@ -479,6 +491,7 @@ static esp_err_t portal_root_handler(httpd_req_t *req)
     char selected_ssid[33] = {0};
     char ap_ssid[33] = {0};
     char ap_ip[16] = {0};
+    portal_state_t state_snapshot = PORTAL_STATE_IDLE;
 
     if (options == NULL || html == NULL) {
         free(options);
@@ -487,14 +500,18 @@ static esp_err_t portal_root_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    (void)wifi_scan_to_options(options, 3072);
-
     lock_state();
     strlcpy(selected_ssid, s_selected_ssid, sizeof(selected_ssid));
     strlcpy(ap_ssid, s_ap_ssid, sizeof(ap_ssid));
     strlcpy(ap_ip, s_sta_ip, sizeof(ap_ip));
     strlcpy(state_buf, state_text(s_state), sizeof(state_buf));
+    state_snapshot = s_state;
     unlock_state();
+
+    if (state_snapshot != PORTAL_STATE_PORTAL_CONNECTING &&
+        state_snapshot != PORTAL_STATE_STA_CONNECTING) {
+        (void)wifi_scan_to_options(options, 3072);
+    }
 
     (void)snprintf(
         html,
@@ -761,6 +778,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         s_connected = true;
         s_waiting_for_connect = false;
         s_retry_count = 0;
+        s_boot_connect_in_progress = false;
+        s_boot_saved_fallback_pending = false;
+        s_boot_saved_fallback_attempted = false;
         strlcpy(s_sta_ip, ip_buf, sizeof(s_sta_ip));
         if (s_portal_active) {
             s_stop_portal_requested = true;
@@ -817,24 +837,58 @@ esp_err_t wifi_portal_start(void)
 {
     ESP_RETURN_ON_ERROR(wifi_portal_init(), TAG, "wifi portal init failed");
 
-    wifi_config_t sta_cfg = {0};
-    bool has_credentials = false;
-    bool from_menuconfig = false;
+    wifi_config_t menu_cfg = {0};
+    wifi_config_t saved_cfg = {0};
+    bool has_menu_cfg = false;
+    bool has_saved_cfg = false;
 
     if (has_menuconfig_credentials()) {
-        strlcpy((char *)sta_cfg.sta.ssid, CONFIG_MACROPAD_WIFI_SSID, sizeof(sta_cfg.sta.ssid));
-        strlcpy((char *)sta_cfg.sta.password, CONFIG_MACROPAD_WIFI_PASSWORD, sizeof(sta_cfg.sta.password));
-        sta_cfg.sta.pmf_cfg.capable = true;
-        has_credentials = true;
-        from_menuconfig = true;
+        strlcpy((char *)menu_cfg.sta.ssid, CONFIG_MACROPAD_WIFI_SSID, sizeof(menu_cfg.sta.ssid));
+        strlcpy((char *)menu_cfg.sta.password, CONFIG_MACROPAD_WIFI_PASSWORD, sizeof(menu_cfg.sta.password));
+        menu_cfg.sta.pmf_cfg.capable = true;
+        has_menu_cfg = true;
+    }
+    has_saved_cfg = get_saved_sta_credentials(&saved_cfg);
+
+    lock_state();
+    s_boot_connect_in_progress = false;
+    s_boot_saved_fallback_pending = false;
+    s_boot_saved_fallback_attempted = false;
+    memset(&s_boot_saved_cfg, 0, sizeof(s_boot_saved_cfg));
+    unlock_state();
+
+    if (has_menu_cfg) {
+        if (has_saved_cfg && !wifi_cfg_sta_same(&menu_cfg, &saved_cfg)) {
+            lock_state();
+            s_boot_saved_cfg = saved_cfg;
+            s_boot_saved_fallback_pending = true;
+            unlock_state();
+        }
+
+        ESP_RETURN_ON_ERROR(start_sta_connect(&menu_cfg, false), TAG, "start menuconfig STA connect failed");
+        lock_state();
+        s_boot_connect_in_progress = true;
         s_using_saved_credentials = false;
-    } else if (get_saved_sta_credentials(&sta_cfg)) {
-        has_credentials = true;
-        from_menuconfig = false;
-        s_using_saved_credentials = true;
+        unlock_state();
+        ESP_LOGI(TAG,
+                 "STA connect started (menuconfig credentials, timeout=%u ms)",
+                 (unsigned)MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS);
+        return ESP_OK;
     }
 
-    if (!has_credentials) {
+    if (has_saved_cfg) {
+        ESP_RETURN_ON_ERROR(start_sta_connect(&saved_cfg, false), TAG, "start saved STA connect failed");
+        lock_state();
+        s_boot_connect_in_progress = true;
+        s_using_saved_credentials = true;
+        unlock_state();
+        ESP_LOGI(TAG,
+                 "STA connect started (stored credentials, timeout=%u ms)",
+                 (unsigned)MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS);
+        return ESP_OK;
+    }
+
+    if (!has_menu_cfg && !has_saved_cfg) {
         ESP_LOGW(TAG, "No STA credentials configured");
         if (MACRO_WIFI_PORTAL_ENABLED) {
             return portal_start_internal();
@@ -842,27 +896,6 @@ esp_err_t wifi_portal_start(void)
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_ERROR(start_sta_connect(&sta_cfg, false), TAG, "start STA connect failed");
-    ESP_LOGI(TAG,
-             "STA connect started (%s credentials, timeout=%u ms)",
-             from_menuconfig ? "menuconfig" : "stored",
-             (unsigned)MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS);
-
-    const EventBits_t bits = xEventGroupWaitBits(
-        s_wifi_evt_group,
-        WIFI_STA_CONNECTED_BIT | WIFI_STA_FAILED_BIT,
-        pdFALSE,
-        pdFALSE,
-        pdMS_TO_TICKS((uint32_t)MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS));
-
-    if ((bits & WIFI_STA_CONNECTED_BIT) != 0U) {
-        return ESP_OK;
-    }
-
-    ESP_LOGW(TAG, "Initial STA connect failed/timed out");
-    if (MACRO_WIFI_PORTAL_ENABLED) {
-        return portal_start_internal();
-    }
     return ESP_OK;
 }
 
@@ -873,6 +906,14 @@ void wifi_portal_poll(void)
     bool timeout_requested = false;
     bool active = false;
     TickType_t start_tick = 0;
+    bool connected = false;
+    bool waiting = false;
+    bool boot_in_progress = false;
+    bool saved_fallback_pending = false;
+    bool saved_fallback_attempted = false;
+    TickType_t sta_attempt_tick = 0;
+    portal_state_t state = PORTAL_STATE_IDLE;
+    wifi_config_t saved_cfg = {0};
 
     lock_state();
     stop_requested = s_stop_portal_requested;
@@ -880,6 +921,14 @@ void wifi_portal_poll(void)
     timeout_requested = s_timeout_requested;
     active = s_portal_active;
     start_tick = s_portal_start_tick;
+    connected = s_connected;
+    waiting = s_waiting_for_connect;
+    boot_in_progress = s_boot_connect_in_progress;
+    saved_fallback_pending = s_boot_saved_fallback_pending;
+    saved_fallback_attempted = s_boot_saved_fallback_attempted;
+    sta_attempt_tick = s_sta_attempt_start_tick;
+    state = s_state;
+    saved_cfg = s_boot_saved_cfg;
     unlock_state();
 
     if (active) {
@@ -903,6 +952,39 @@ void wifi_portal_poll(void)
         s_timeout_requested = false;
         unlock_state();
         (void)portal_stop_internal(cancel_requested, timeout_requested);
+        return;
+    }
+
+    if (!active && boot_in_progress && !connected) {
+        const TickType_t sta_timeout_ticks =
+            pdMS_TO_TICKS((uint32_t)MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS);
+        const bool timed_out = (sta_timeout_ticks > 0U) &&
+                               ((xTaskGetTickCount() - sta_attempt_tick) >= sta_timeout_ticks);
+        const bool failed_now = (!waiting) && (state == PORTAL_STATE_FAILED);
+        if (timed_out || failed_now) {
+            if (saved_fallback_pending && !saved_fallback_attempted) {
+                ESP_LOGW(TAG, "Boot STA connect failed; trying stored credentials");
+                lock_state();
+                s_boot_saved_fallback_attempted = true;
+                s_boot_saved_fallback_pending = false;
+                unlock_state();
+                if (start_sta_connect(&saved_cfg, false) == ESP_OK) {
+                    lock_state();
+                    s_using_saved_credentials = true;
+                    unlock_state();
+                }
+                return;
+            }
+
+            lock_state();
+            s_boot_connect_in_progress = false;
+            unlock_state();
+
+            ESP_LOGW(TAG, "Initial STA connect failed/timed out");
+            if (MACRO_WIFI_PORTAL_ENABLED) {
+                (void)portal_start_internal();
+            }
+        }
     }
 }
 
