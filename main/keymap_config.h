@@ -158,8 +158,6 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_TOGGLE_OFF "boff:d=32,o=5,b=180:e"
 
 #define MACRO_HA_ENABLED false
-#define MACRO_HA_BASE_URL "http://homeassistant.local:8123"
-#define MACRO_HA_BEARER_TOKEN ""
 #define MACRO_HA_DEVICE_NAME "esp32-macropad"
 #define MACRO_HA_EVENT_PREFIX "macropad"
 #define MACRO_HA_REQUEST_TIMEOUT_MS 1800

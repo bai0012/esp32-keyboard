@@ -63,8 +63,6 @@ def render_header(cfg: dict[str, Any]) -> str:
     buzzer = cfg["buzzer"]
     ha = cfg.get("home_assistant", {
         "enabled": False,
-        "base_url": "",
-        "bearer_token": "",
         "device_name": "esp32-macropad",
         "event_prefix": "macropad",
         "request_timeout_ms": 1800,
@@ -233,8 +231,6 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_BUZZER_RTTTL_TOGGLE_OFF {c_str(str(encoder_toggle['off_rtttl']))}")
     out.append("")
     out.append(f"#define MACRO_HA_ENABLED {c_bool(ha['enabled'])}")
-    out.append(f"#define MACRO_HA_BASE_URL {c_str(str(ha['base_url']))}")
-    out.append(f"#define MACRO_HA_BEARER_TOKEN {c_str(str(ha['bearer_token']))}")
     out.append(f"#define MACRO_HA_DEVICE_NAME {c_str(str(ha['device_name']))}")
     out.append(f"#define MACRO_HA_EVENT_PREFIX {c_str(str(ha['event_prefix']))}")
     out.append(f"#define MACRO_HA_REQUEST_TIMEOUT_MS {as_int(ha['request_timeout_ms'], 'home_assistant.request_timeout_ms')}")

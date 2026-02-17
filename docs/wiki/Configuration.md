@@ -100,8 +100,6 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `buzzer.encoder_toggle.on_rtttl` | `'bon:d=32,o=6,b=180:g'` | Sound played when buzzer is turned on. |
 | `buzzer.encoder_toggle.off_rtttl` | `'boff:d=32,o=5,b=180:e'` | Sound played before buzzer turns off. |
 | `home_assistant.enabled` | `false` | Master switch for Home Assistant event bridge. |
-| `home_assistant.base_url` | `'http://homeassistant.local:8123'` | Base URL for HA instance (`/api/events/*` is appended internally). |
-| `home_assistant.bearer_token` | `''` | Long-lived access token for `Authorization: Bearer ...`. |
 | `home_assistant.device_name` | `'esp32-macropad'` | Device identifier string included in event payloads. |
 | `home_assistant.event_prefix` | `'macropad'` | Prefix for HA event names (e.g. `macropad_layer_switch`). |
 | `home_assistant.request_timeout_ms` | `1800` | HTTP timeout per event publish. |
@@ -128,8 +126,12 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_WIFI_PASSWORD`
 - `MACROPAD_NTP_SERVER`
 - `MACROPAD_TZ`
+- `MACROPAD_HA_BASE_URL`
+- `MACROPAD_HA_BEARER_TOKEN`
 
 If SSID is empty, Wi-Fi and SNTP are disabled.
+
+Security-sensitive Home Assistant values are intentionally stored in `menuconfig`/`sdkconfig` and not in `config/keymap_config.yaml`.
 
 ## 5) Related Pages
 - [OLED Display](OLED-Display)

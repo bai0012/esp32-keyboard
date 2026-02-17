@@ -21,11 +21,9 @@ Current implementation:
   - Entire bridge can be disabled by config.
   - Individual event families can be enabled/disabled.
 
-## 3) Configuration (`config/keymap_config.yaml`)
-`home_assistant.*` keys:
+## 3) Configuration
+YAML keys in `config/keymap_config.yaml`:
 - `enabled`
-- `base_url`
-- `bearer_token`
 - `device_name`
 - `event_prefix`
 - `request_timeout_ms`
@@ -37,13 +35,15 @@ Current implementation:
 - `publish_encoder_step`
 - `publish_touch_swipe`
 
+Menuconfig keys (`idf.py menuconfig` -> `MacroPad Configuration`):
+- `MACROPAD_HA_BASE_URL`
+- `MACROPAD_HA_BEARER_TOKEN`
+
 Example:
 
 ```yaml
 home_assistant:
   enabled: true
-  base_url: 'http://homeassistant.local:8123'
-  bearer_token: 'YOUR_LONG_LIVED_TOKEN'
   device_name: 'esp32-macropad'
   event_prefix: 'macropad'
   request_timeout_ms: 1800
@@ -55,6 +55,10 @@ home_assistant:
   publish_encoder_step: false
   publish_touch_swipe: false
 ```
+
+Sensitive data policy:
+- Keep URL/token only in `menuconfig`/`sdkconfig`.
+- Do not store bearer token in repo-tracked YAML.
 
 ## 4) Event Families
 - `layer_switch`
@@ -110,7 +114,7 @@ Core APIs:
 - Keep worker asynchronous; do not publish directly from input ISR/task paths.
 
 ## 8) Validation Checklist
-1. Enable HA in YAML with valid `base_url` and token.
+1. Enable HA in YAML and set valid `MACROPAD_HA_BASE_URL`/`MACROPAD_HA_BEARER_TOKEN` in menuconfig.
 2. Build/flash firmware.
 3. Trigger enabled event family (e.g., switch layer).
 4. Verify event reception in Home Assistant automation/developer tools.

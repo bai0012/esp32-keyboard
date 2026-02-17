@@ -12,6 +12,7 @@
 #include "esp_log.h"
 
 #include "keymap_config.h"
+#include "sdkconfig.h"
 
 #define TAG "HOME_ASSISTANT"
 
@@ -106,7 +107,7 @@ static void json_escape_copy(char *dst, size_t dst_size, const char *src)
 
 static void normalize_base_url(void)
 {
-    strlcpy(s_base_url, MACRO_HA_BASE_URL, sizeof(s_base_url));
+    strlcpy(s_base_url, CONFIG_MACROPAD_HA_BASE_URL, sizeof(s_base_url));
     size_t n = strlen(s_base_url);
     while (n > 0 && s_base_url[n - 1] == '/') {
         s_base_url[n - 1] = '\0';
@@ -293,16 +294,16 @@ esp_err_t home_assistant_init(void)
         s_runtime_enabled = false;
         return ESP_OK;
     }
-    if (strlen(MACRO_HA_BASE_URL) == 0) {
-        ESP_LOGW(TAG, "Disabled: empty home_assistant.base_url");
+    if (strlen(CONFIG_MACROPAD_HA_BASE_URL) == 0) {
+        ESP_LOGW(TAG, "Disabled: empty CONFIG_MACROPAD_HA_BASE_URL");
         s_runtime_enabled = false;
         return ESP_OK;
     }
 
     normalize_base_url();
     json_escape_copy(s_device_name_escaped, sizeof(s_device_name_escaped), MACRO_HA_DEVICE_NAME);
-    if (strlen(MACRO_HA_BEARER_TOKEN) > 0U) {
-        (void)snprintf(s_auth_header, sizeof(s_auth_header), "Bearer %s", MACRO_HA_BEARER_TOKEN);
+    if (strlen(CONFIG_MACROPAD_HA_BEARER_TOKEN) > 0U) {
+        (void)snprintf(s_auth_header, sizeof(s_auth_header), "Bearer %s", CONFIG_MACROPAD_HA_BEARER_TOKEN);
     } else {
         s_auth_header[0] = '\0';
     }

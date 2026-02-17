@@ -103,7 +103,7 @@ Edit `config/keymap_config.yaml`:
 - LED brightness + layer color scales (`led.*`)
 - buzzer behavior + RTTTL melodies (`buzzer.*`)
 - OLED protection and I2C speed (`oled.*`)
-- Home Assistant endpoint/publish behavior (`home_assistant.*`)
+- Home Assistant runtime publish behavior (`home_assistant.*`)
 
 Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
 
@@ -118,8 +118,13 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_WIFI_PASSWORD`
 - `MACROPAD_NTP_SERVER`
 - `MACROPAD_TZ`
+- `MACROPAD_HA_BASE_URL` (Home Assistant base URL)
+- `MACROPAD_HA_BEARER_TOKEN` (Home Assistant token)
 
 Leaving SSID empty disables Wi-Fi/SNTP.
+
+Security note:
+- Keep Home Assistant URL/token in `menuconfig` (sdkconfig), not in `config/keymap_config.yaml`, to avoid leaking secrets to GitHub.
 
 ## Runtime Controls
 - Encoder taps:

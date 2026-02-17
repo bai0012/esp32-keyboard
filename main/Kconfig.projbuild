@@ -24,4 +24,18 @@ config MACROPAD_TZ
     help
         Timezone string in POSIX TZ format, e.g. CST-8, EST5EDT,M3.2.0/2,M11.1.0/2.
 
+config MACROPAD_HA_BASE_URL
+    string "Home Assistant Base URL"
+    default ""
+    help
+        Home Assistant base URL used by the REST event bridge, e.g.
+        http://homeassistant.local:8123
+
+config MACROPAD_HA_BEARER_TOKEN
+    string "Home Assistant Bearer Token"
+    default ""
+    help
+        Long-lived access token used as Authorization: Bearer <token>.
+        Keep empty to disable authenticated requests.
+
 endmenu

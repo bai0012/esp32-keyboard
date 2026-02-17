@@ -219,11 +219,9 @@ buzzer:
 home_assistant:
   # Master switch. Keep false until Home Assistant endpoint/token are configured.
   enabled: false
-  # Home Assistant base URL (no trailing slash required).
-  base_url: 'http://homeassistant.local:8123'
-  # Long-lived access token from Home Assistant profile.
-  # Empty means "no Authorization header" (not recommended for production).
-  bearer_token: ''
+  # Security-sensitive transport fields are set via menuconfig:
+  # - CONFIG_MACROPAD_HA_BASE_URL
+  # - CONFIG_MACROPAD_HA_BEARER_TOKEN
   # Device identifier included in event payloads.
   device_name: 'esp32-macropad'
   # Event type prefix. Example event names: macropad_layer_switch, macropad_key_event.
