@@ -17,7 +17,7 @@
 - Button supports multi-tap layer control:
   - 1 tap: delayed single action
   - 2 taps: layer 1
-  - 3 taps: layer 2
+  - 3 taps: layer 2 (or provisioning cancel when Wi-Fi captive portal is active)
   - 4+ taps: layer 3
 - Optional Home Assistant control shortcut:
   - configurable tap count (`home_assistant.control.tap_count`)
@@ -54,7 +54,19 @@
   - OLED shows clock with an additional status line (example: `HA: ON`)
   - state is polled from `/api/states/<entity_id>`
 
-## 7) Buzzer Feedback
+## 7) Wi-Fi Provisioning Fallback
+- Boot STA connect strategy:
+  - use menuconfig SSID/password when provided
+  - otherwise use previously stored Wi-Fi credentials
+  - if connect fails/times out, start captive portal provisioning (when enabled)
+- Captive portal runtime:
+  - starts SoftAP + DNS catch-all + HTTP setup UI
+  - user selects SSID/password in web UI and submits connect request
+  - credentials are stored in Wi-Fi flash/NVS and reused on future boots
+  - OLED switches from clock scene to provisioning status scene
+  - EC11 triple-tap cancels provisioning immediately
+
+## 8) Buzzer Feedback
 - Buzzer playback is non-blocking and queue-driven.
 - Default event hooks:
   - startup Mario intro notes (first phrase)
@@ -67,7 +79,7 @@
 - Encoder-step tones are rate-limited and coalesced to avoid post-spin tail playback.
 - Optional encoder multi-tap can toggle buzzer enable/disable with configurable on/off tones.
 
-## 8) OLED Screen Protection
+## 9) OLED Screen Protection
 - Universal pixel shifting:
   - All rendered clock content (including static markers) is shifted together.
   - Shift is randomized in the configured range (default `+/-2 px`) every configured interval (default 60s).
@@ -87,7 +99,7 @@ For complete OLED behavior details and tuning guidance:
 For buzzer behavior details and tuning guidance:
 - [Buzzer Feedback](Buzzer-Feedback)
 
-## 9) Home Assistant Bridge (Optional)
+## 10) Home Assistant Bridge (Optional)
 - Runtime events can be published asynchronously to HA REST event bus.
 - Publisher is queue-based and non-blocking for input/HID loops.
 - Configured through `home_assistant.*` in `config/keymap_config.yaml`.

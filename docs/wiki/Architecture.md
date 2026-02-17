@@ -13,7 +13,7 @@
   - Key debounce and action routing
   - Layer switching and LED feedback
   - OLED protection policy control (shift/dim/off/invert timing)
-  - Wi-Fi + SNTP init
+  - SNTP start hook (on IP-acquired event)
   - Home Assistant module event hooks
 - `main/macropad_hid.c`
   - TinyUSB descriptor and callback setup
@@ -43,6 +43,12 @@
   - Home Assistant state polling (`/api/states/<entity_id>`) for OLED
   - Home Assistant service control (`/api/services/<domain>/<service>`)
   - Retry + timeout handling for unstable network/server conditions
+- `main/wifi_portal.c`
+  - Wi-Fi STA init/connect bootstrap
+  - Fallback captive portal provisioning (SoftAP + DNS catch-all + HTTP web UI)
+  - Stored credential reuse and persistence via Wi-Fi flash storage
+  - Provisioning state API for OLED scene integration
+  - Runtime cancel/timeout control path
 
 OLED subsystem deep-dive:
 - [OLED Display](OLED-Display)
@@ -55,6 +61,7 @@ OLED subsystem deep-dive:
 5. Optional Home Assistant events are queued and published asynchronously.
 6. Optional Home Assistant state is polled and cached for display task rendering.
 7. Optional Home Assistant service actions are queued from runtime shortcuts.
+8. Wi-Fi provisioning module manages STA boot connect and captive fallback as needed.
 
 ## 4) Build Composition
 - `main/CMakeLists.txt` registers:
@@ -64,3 +71,4 @@ OLED subsystem deep-dive:
   - `touch_slider.c`
   - `oled.c`
   - `home_assistant.c`
+  - `wifi_portal.c`

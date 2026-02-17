@@ -170,6 +170,34 @@ oled:
   # OLED I2C speed in Hz.
   i2c_scl_hz: 800000
 
+# Wi-Fi captive portal fallback (ESPHome-style first-run provisioning flow).
+# Trigger conditions:
+# - menuconfig SSID is empty, or
+# - STA connection fails/times out at boot.
+wifi_portal:
+  # Master enable for AP + captive portal provisioning.
+  enabled: true
+  # Provisioning hotspot SSID shown to users.
+  ap_ssid: 'MacroPad-Setup'
+  # Hotspot password (8+ chars for WPA2; ignored for OPEN mode).
+  ap_password: '12345678'
+  # Encryption/auth mode token from ESP-IDF (examples: WIFI_AUTH_OPEN, WIFI_AUTH_WPA2_PSK).
+  ap_auth_mode: WIFI_AUTH_WPA2_PSK
+  # AP radio channel.
+  ap_channel: 1
+  # Maximum associated stations while provisioning.
+  ap_max_connections: 4
+  # Provisioning timeout (0 = no timeout, wait until cancel/success).
+  timeout_sec: 300
+  # Initial STA connect timeout before fallback portal starts.
+  sta_connect_timeout_ms: 12000
+  # Max STA retries before initial attempt is considered failed.
+  sta_max_retry: 3
+  # Max AP scan entries shown in the web UI.
+  scan_max_results: 20
+  # Enable DNS catch-all to force captive behavior.
+  dns_captive_enabled: true
+
 # Passive buzzer profile.
 buzzer:
   # Master enable switch (false compiles out runtime buzzer behavior).
@@ -184,7 +212,7 @@ buzzer:
   rtttl_note_gap_ms: 8
 
   startup:
-    enabled: true
+    enabled: false
     # Example RTTTL melody: Mario intro phrase.
     rtttl: 'mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,8e6,8g6,8p,8g,8p'
 

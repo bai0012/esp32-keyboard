@@ -79,6 +79,17 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `oled.shift_range_px` | `2` | Pixel-shift random radius (`+/-N`). |
 | `oled.shift_interval_sec` | `60` | Pixel-shift interval. |
 | `oled.i2c_scl_hz` | `800000` | OLED I2C clock speed in Hz. |
+| `wifi_portal.enabled` | `true` | Enables captive portal fallback provisioning flow. |
+| `wifi_portal.ap_ssid` | `'MacroPad-Setup'` | Provisioning hotspot SSID. |
+| `wifi_portal.ap_password` | `'12345678'` | Provisioning hotspot password (`8+` chars for WPA2). |
+| `wifi_portal.ap_auth_mode` | `WIFI_AUTH_WPA2_PSK` | AP encryption mode token (`WIFI_AUTH_OPEN`, `WIFI_AUTH_WPA2_PSK`, ...). |
+| `wifi_portal.ap_channel` | `1` | Provisioning AP channel. |
+| `wifi_portal.ap_max_connections` | `4` | Max stations allowed on provisioning AP. |
+| `wifi_portal.timeout_sec` | `300` | Auto-cancel timeout for provisioning (`0` disables timeout). |
+| `wifi_portal.sta_connect_timeout_ms` | `12000` | Boot STA connect timeout before fallback portal starts. |
+| `wifi_portal.sta_max_retry` | `3` | Max STA retries before initial connect is considered failed. |
+| `wifi_portal.scan_max_results` | `20` | Max AP scan entries rendered in provisioning web UI. |
+| `wifi_portal.dns_captive_enabled` | `true` | Enables DNS catch-all behavior for captive portal UX. |
 | `buzzer.enabled` | `true` | Master buzzer enable. |
 | `buzzer.gpio` | `GPIO_NUM_21` | Buzzer output pin. |
 | `buzzer.duty_percent` | `28` | PWM duty for passive buzzer loudness. |
@@ -139,7 +150,9 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_HA_BASE_URL`
 - `MACROPAD_HA_BEARER_TOKEN`
 
-If SSID is empty, Wi-Fi and SNTP are disabled.
+If SSID is empty:
+- firmware first tries previously stored Wi-Fi credentials
+- if none exist (or if boot connect fails), captive portal fallback starts when `wifi_portal.enabled=true`
 
 Security-sensitive Home Assistant values are intentionally stored in `menuconfig`/`sdkconfig` and not in `config/keymap_config.yaml`.
 
@@ -148,6 +161,7 @@ Security-sensitive Home Assistant values are intentionally stored in `menuconfig
 - [Buzzer Feedback](Buzzer-Feedback)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [Home Assistant Integration](Home-Assistant-Integration)
+- [Wi-Fi Provisioning](Wi-Fi-Provisioning)
 
 ## 6) OLED Animation Asset Config
 These are file-based assets (not in `keymap_config.yaml`):

@@ -549,3 +549,26 @@ esp_err_t oled_render_clock_with_status(const struct tm *timeinfo,
     }
     return oled_present();
 }
+
+esp_err_t oled_render_text_lines(const char *line0,
+                                 const char *line1,
+                                 const char *line2,
+                                 const char *line3,
+                                 int8_t shift_x,
+                                 int8_t shift_y)
+{
+    oled_clear_buffer();
+    if (line0 != NULL && line0[0] != '\0') {
+        oled_draw_text_tiny(2 + shift_x, 2 + shift_y, line0, 30);
+    }
+    if (line1 != NULL && line1[0] != '\0') {
+        oled_draw_text_tiny(2 + shift_x, 14 + shift_y, line1, 30);
+    }
+    if (line2 != NULL && line2[0] != '\0') {
+        oled_draw_text_tiny(2 + shift_x, 26 + shift_y, line2, 30);
+    }
+    if (line3 != NULL && line3[0] != '\0') {
+        oled_draw_text_tiny(2 + shift_x, 38 + shift_y, line3, 30);
+    }
+    return oled_present();
+}

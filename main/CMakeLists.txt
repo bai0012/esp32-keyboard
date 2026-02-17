@@ -6,8 +6,9 @@ idf_component_register(
         "macropad_hid.c"
         "touch_slider.c"
         "oled.c"
+        "wifi_portal.c"
     INCLUDE_DIRS "."
-    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client mbedtls
+    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client esp_http_server lwip mbedtls
 )
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

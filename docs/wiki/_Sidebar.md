@@ -4,6 +4,7 @@
 - [Configuration](Configuration)
 - [Runtime Behavior](Runtime-Behavior)
 - [OLED Display](OLED-Display)
+- [Wi-Fi Provisioning](Wi-Fi-Provisioning)
 - [Buzzer Feedback](Buzzer-Feedback)
 - [Home Assistant Integration](Home-Assistant-Integration)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)

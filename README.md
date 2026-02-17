@@ -9,6 +9,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - Passive buzzer feedback (LEDC PWM)
 - USB HID (keyboard + consumer control)
 - Optional Wi-Fi SNTP time sync
+- Captive portal provisioning fallback (AP + web UI + credential persistence)
 - Optional Home Assistant REST event bridge
 
 Hardware reference is documented in `hardware_info.md`.
@@ -39,6 +40,11 @@ Hardware reference is documented in `hardware_info.md`.
   - optional state polling (`/api/states/<entity_id>`) for OLED status line
   - optional direct service control (`/api/services/<domain>/<service>`)
   - configurable event families (layer/key/encoder/touch), timeout, and retry
+- Wi-Fi provisioning fallback:
+  - AP + captive portal web UI when credentials are missing or STA boot connect fails
+  - persisted STA credentials (stored in Wi-Fi flash/NVS)
+  - configurable AP/auth/timeout/retry/scan limits in YAML
+  - provisioning status rendered on OLED
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
   - inactivity auto-dim and auto-off
@@ -58,8 +64,9 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/oled.c`: OLED core driver, framebuffer primitives, UTF-8 text path, and clock scene renderer
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
 - `main/home_assistant.c`: Home Assistant event queue + REST publisher
+- `main/wifi_portal.c`: Wi-Fi STA boot connect + captive portal provisioning fallback
 - `assets/animations/`: source images + manifest for OLED animations
-- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant)
+- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant/wifi_portal)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
 - `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
@@ -108,6 +115,7 @@ Edit `config/keymap_config.yaml`:
 - buzzer behavior + RTTTL melodies (`buzzer.*`)
 - OLED protection and I2C speed (`oled.*`)
 - Home Assistant runtime publish behavior (`home_assistant.*`)
+- Captive portal behavior (`wifi_portal.*`)
 
 Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
 
@@ -125,7 +133,11 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_HA_BASE_URL` (Home Assistant base URL)
 - `MACROPAD_HA_BEARER_TOKEN` (Home Assistant token)
 
-Leaving SSID empty disables Wi-Fi/SNTP.
+Connection behavior:
+- if menuconfig SSID/password are set, firmware tries STA at boot
+- if menuconfig SSID is empty, firmware tries previously stored Wi-Fi credentials
+- if no credentials are available, or boot STA connect fails, captive portal provisioning starts (when `wifi_portal.enabled=true`)
+- credentials submitted from captive portal are stored in Wi-Fi flash storage (NVS) and reused next boot
 
 Security note:
 - Keep Home Assistant URL/token in `menuconfig` (sdkconfig), not in `config/keymap_config.yaml`, to avoid leaking secrets to GitHub.
@@ -134,8 +146,13 @@ Security note:
 - Encoder taps:
   - 1 tap: layer-specific consumer action (delayed single-tap resolution)
   - 2 taps: switch to layer 1
-  - 3 taps: switch to layer 2
+  - 3 taps: switch to layer 2 (or cancel Wi-Fi provisioning when captive portal is active)
   - 4+ taps: switch to layer 3
+- Wi-Fi captive portal:
+  - AP name/password/auth/timeout/scan size are configurable in `wifi_portal.*`
+  - web UI provides AP scan + SSID/password connect form
+  - optional DNS catch-all forces captive-portal behavior
+  - OLED shows provisioning state (AP name, selected SSID, status, elapsed time)
 - Touch slider:
   - `R->L` triggers `left_usage`
   - `L->R` triggers `right_usage`
@@ -198,6 +215,7 @@ Security note:
 - OLED deep-dive: `docs/wiki/OLED-Display.md`
 - Buzzer deep-dive: `docs/wiki/Buzzer-Feedback.md`
 - Home Assistant integration: `docs/wiki/Home-Assistant-Integration.md`
+- Wi-Fi provisioning/captive portal: `docs/wiki/Wi-Fi-Provisioning.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

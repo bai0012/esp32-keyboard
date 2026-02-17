@@ -63,3 +63,9 @@ esp_err_t oled_render_clock_with_status(const struct tm *timeinfo,
                                         const char *status_text,
                                         int8_t shift_x,
                                         int8_t shift_y);
+esp_err_t oled_render_text_lines(const char *line0,
+                                 const char *line1,
+                                 const char *line2,
+                                 const char *line3,
+                                 int8_t shift_x,
+                                 int8_t shift_y);

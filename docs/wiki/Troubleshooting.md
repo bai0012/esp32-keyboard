@@ -28,9 +28,19 @@
 - Ensure SSID/password are configured.
 - Confirm network reachability to NTP server.
 - Validate timezone string in `MACROPAD_TZ`.
-- Remember: empty SSID intentionally disables SNTP.
+- If SSID is empty, firmware uses stored credentials or falls back to captive portal (if enabled).
 
-## 6) OLED Protection Behavior Not as Expected
+## 6) Captive Portal Not Appearing
+- Confirm `wifi_portal.enabled: true` in `config/keymap_config.yaml`.
+- Confirm boot STA connect really failed or no credentials exist.
+- Check AP auth/password settings:
+  - WPA2 requires password length >= 8.
+  - If auth/password mismatch is configured, firmware may force OPEN mode.
+- Check `wifi_portal.timeout_sec` is not too short.
+- If phone/laptop does not pop captive UI automatically:
+  - open browser manually at `http://192.168.4.1`.
+
+## 7) OLED Protection Behavior Not as Expected
 - Verify `oled.*` settings in `config/keymap_config.yaml`.
 - If screen turns off too early/late:
   - tune `MACRO_OLED_DIM_TIMEOUT_SEC` and `MACRO_OLED_OFF_TIMEOUT_SEC`.
@@ -39,7 +49,7 @@
 - Full OLED behavior reference:
   - [OLED Display](OLED-Display)
 
-## 7) RGB LED Flicker
+## 8) RGB LED Flicker
 - Verify board power quality and ground integrity for the LED chain.
 - Keep data line short and well-referenced to ground.
 - Confirm firmware includes change-driven LED refresh and indicator debounce logic.
@@ -50,21 +60,21 @@
 - If LEDs seem to "turn off unexpectedly" after idle:
   - check `led.off_timeout_sec` (`0` disables automatic RGB off)
 
-## 8) Home Assistant Events Not Received
+## 9) Home Assistant Events Not Received
 - Confirm `home_assistant.enabled: true`.
 - Validate `CONFIG_MACROPAD_HA_BASE_URL` and `CONFIG_MACROPAD_HA_BEARER_TOKEN` in menuconfig.
 - Ensure event family is enabled (for example `publish_layer_switch: true`).
 - Check Home Assistant is reachable from device network/VLAN.
 - If using HTTPS, verify server cert chain is trusted by ESP-IDF CRT bundle.
 
-## 9) Home Assistant State Not Shown on OLED
+## 10) Home Assistant State Not Shown on OLED
 - Confirm `home_assistant.display.enabled: true`.
 - Verify `home_assistant.display.entity_id` exists in Home Assistant.
 - Use Developer Tools -> States to confirm entity returns a valid `state`.
 - If custom `label` is empty, OLED line will use Home Assistant `friendly_name`.
 - Check network reachability and token permission (same as event bridge).
 
-## 10) Home Assistant Control Shortcut Not Triggering
+## 11) Home Assistant Control Shortcut Not Triggering
 - Confirm `home_assistant.control.enabled: true`.
 - Verify `home_assistant.control.tap_count` does not conflict with:
   - layer taps (`2/3/4+`)

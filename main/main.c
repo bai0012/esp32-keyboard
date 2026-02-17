@@ -5,7 +5,6 @@
 #include <time.h>
 
 #include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
 #include "freertos/task.h"
 
 #include "driver/gpio.h"
@@ -17,7 +16,6 @@
 #include "esp_netif.h"
 #include "esp_sntp.h"
 #include "esp_system.h"
-#include "esp_wifi.h"
 #include "nvs_flash.h"
 
 #include "led_strip.h"
@@ -32,6 +30,7 @@
 #include "oled.h"
 #include "oled_animation_assets.h"
 #include "touch_slider.h"
+#include "wifi_portal.h"
 
 #define TAG "MACROPAD"
 
@@ -53,8 +52,6 @@
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
 #define BOOT_ANIMATION_MAX_FRAME_MS 1000
 #define HA_DISPLAY_STALE_MS 120000U
-
-#define WIFI_CONNECTED_BIT BIT0
 
 typedef struct {
     bool stable_level;
@@ -78,7 +75,6 @@ static bool s_led_frame_valid = false;
 static debounce_state_t s_usb_mounted_db;
 static debounce_state_t s_usb_hid_ready_db;
 
-static EventGroupHandle_t s_wifi_event_group;
 static bool s_sntp_started;
 static volatile TickType_t s_last_user_activity_tick = 0;
 static TickType_t s_log_gate_start_tick = 0;
@@ -316,28 +312,15 @@ static bool debounce_update(debounce_state_t *state,
     return false;
 }
 
-static void wifi_event_handler(void *arg,
-                               esp_event_base_t event_base,
-                               int32_t event_id,
-                               void *event_data)
+static void sntp_ip_event_handler(void *arg,
+                                  esp_event_base_t event_base,
+                                  int32_t event_id,
+                                  void *event_data)
 {
     (void)arg;
     (void)event_data;
 
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-        return;
-    }
-
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-        esp_wifi_connect();
-        return;
-    }
-
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-
         if (!s_sntp_started) {
             APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
             esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -348,34 +331,9 @@ static void wifi_event_handler(void *arg,
     }
 }
 
-static esp_err_t init_wifi_and_sntp(void)
+static esp_err_t register_sntp_handler(void)
 {
-    if (strlen(CONFIG_MACROPAD_WIFI_SSID) == 0U) {
-        ESP_LOGW(TAG, "Wi-Fi SSID empty, SNTP disabled");
-        return ESP_OK;
-    }
-
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_cfg));
-
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
-
-    wifi_config_t wifi_cfg = {0};
-    strlcpy((char *)wifi_cfg.sta.ssid, CONFIG_MACROPAD_WIFI_SSID, sizeof(wifi_cfg.sta.ssid));
-    strlcpy((char *)wifi_cfg.sta.password, CONFIG_MACROPAD_WIFI_PASSWORD, sizeof(wifi_cfg.sta.password));
-    wifi_cfg.sta.pmf_cfg.capable = true;
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    APP_LOGI("Wi-Fi started, waiting for IP");
-    return ESP_OK;
+    return esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sntp_ip_event_handler, NULL);
 }
 
 static esp_err_t init_keys(void)
@@ -594,7 +552,12 @@ static void input_task(void *arg)
                 set_active_layer(0);
             } else if (taps == 3) {
                 s_encoder_single_pending = false;
-                set_active_layer(1);
+                if (wifi_portal_is_active()) {
+                    const esp_err_t cancel_err = wifi_portal_cancel();
+                    APP_LOGI("Wi-Fi portal cancel via tap x3: %s", esp_err_to_name(cancel_err));
+                } else {
+                    set_active_layer(1);
+                }
             } else if (taps >= 4) {
                 s_encoder_single_pending = false;
                 set_active_layer(2);
@@ -635,6 +598,7 @@ static void input_task(void *arg)
         }
 
         buzzer_update(now);
+        wifi_portal_poll();
 
         if ((now - last_heartbeat) >= pdMS_TO_TICKS(2000)) {
             last_heartbeat = now;
@@ -729,14 +693,31 @@ static void display_task(void *arg)
         }
 
         if (display_enabled) {
+            char portal_l0[48] = {0};
+            char portal_l1[48] = {0};
+            char portal_l2[48] = {0};
+            char portal_l3[48] = {0};
             char ha_line[96] = {0};
             uint32_t ha_age_ms = 0;
+            const bool portal_active = wifi_portal_get_oled_lines(portal_l0,
+                                                                  sizeof(portal_l0),
+                                                                  portal_l1,
+                                                                  sizeof(portal_l1),
+                                                                  portal_l2,
+                                                                  sizeof(portal_l2),
+                                                                  portal_l3,
+                                                                  sizeof(portal_l3));
             const bool has_ha_text =
                 home_assistant_get_display_text(ha_line, sizeof(ha_line), &ha_age_ms) &&
                 (ha_age_ms <= HA_DISPLAY_STALE_MS);
-            esp_err_t err = has_ha_text
-                                ? oled_render_clock_with_status(&timeinfo, ha_line, shift_x, shift_y)
-                                : oled_render_clock(&timeinfo, shift_x, shift_y);
+            esp_err_t err = ESP_OK;
+            if (portal_active) {
+                err = oled_render_text_lines(portal_l0, portal_l1, portal_l2, portal_l3, shift_x, shift_y);
+            } else {
+                err = has_ha_text
+                          ? oled_render_clock_with_status(&timeinfo, ha_line, shift_x, shift_y)
+                          : oled_render_clock(&timeinfo, shift_x, shift_y);
+            }
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "OLED render failed: %s", esp_err_to_name(err));
             }
@@ -760,8 +741,6 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    s_wifi_event_group = xEventGroupCreate();
-    configASSERT(s_wifi_event_group != NULL);
     s_last_user_activity_tick = xTaskGetTickCount();
 
     ESP_ERROR_CHECK(init_keys());
@@ -774,7 +753,9 @@ void app_main(void)
     ESP_ERROR_CHECK(oled_init());
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     play_boot_animation();
-    ESP_ERROR_CHECK(init_wifi_and_sntp());
+    ESP_ERROR_CHECK(wifi_portal_init());
+    ESP_ERROR_CHECK(register_sntp_handler());
+    ESP_ERROR_CHECK(wifi_portal_start());
     {
         const esp_err_t ha_err = home_assistant_init();
         if (ha_err != ESP_OK) {

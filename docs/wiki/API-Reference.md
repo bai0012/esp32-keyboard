@@ -72,6 +72,10 @@
 ### `esp_err_t oled_render_clock_with_status(const struct tm *timeinfo, const char *status_text, int8_t shift_x, int8_t shift_y);`
 - Renders clock plus one compact status line (used for Home Assistant state display).
 
+### `esp_err_t oled_render_text_lines(const char *line0, const char *line1, const char *line2, const char *line3, int8_t shift_x, int8_t shift_y);`
+- Renders a generic 4-line tiny-font scene.
+- Used by captive-portal provisioning status UI on OLED.
+
 Behavior/tuning reference:
 - [OLED Display](OLED-Display)
 
@@ -148,3 +152,27 @@ Behavior/tuning reference:
 
 ### `esp_err_t home_assistant_queue_custom_event(const char *event_suffix, const char *json_payload);`
 - Extension API for future features to publish custom JSON payloads to HA event bus.
+
+## 6) Wi-Fi Portal Module (`main/wifi_portal.h`)
+
+### `esp_err_t wifi_portal_init(void);`
+- Initializes Wi-Fi stack integration for STA + optional captive portal flow.
+
+### `esp_err_t wifi_portal_start(void);`
+- Starts boot Wi-Fi connect attempt and triggers fallback captive portal when needed.
+
+### `void wifi_portal_poll(void);`
+- Periodic service call for timeout/stop/cancel state transitions.
+
+### `bool wifi_portal_is_active(void);`
+- Returns whether captive portal provisioning is currently active.
+
+### `bool wifi_portal_is_connected(void);`
+- Returns current STA connectivity state tracked by the module.
+
+### `esp_err_t wifi_portal_cancel(void);`
+- Requests immediate cancellation of active provisioning flow.
+
+### `bool wifi_portal_get_oled_lines(...);`
+- Exports short provisioning status lines for OLED rendering.
+- Returns `false` when provisioning scene is not active.

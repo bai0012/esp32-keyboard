@@ -60,6 +60,19 @@ def render_header(cfg: dict[str, Any]) -> str:
     encoder = cfg["encoder"]
     touch = cfg["touch"]
     oled = cfg["oled"]
+    wifi_portal = cfg.get("wifi_portal", {
+        "enabled": False,
+        "ap_ssid": "MacroPad-Setup",
+        "ap_password": "",
+        "ap_auth_mode": "WIFI_AUTH_OPEN",
+        "ap_channel": 1,
+        "ap_max_connections": 4,
+        "timeout_sec": 300,
+        "sta_connect_timeout_ms": 12000,
+        "sta_max_retry": 3,
+        "scan_max_results": 20,
+        "dns_captive_enabled": True,
+    })
     buzzer = cfg["buzzer"]
     ha = cfg.get("home_assistant", {
         "enabled": False,
@@ -217,6 +230,18 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_OLED_SHIFT_RANGE_PX {as_int(oled['shift_range_px'], 'oled.shift_range_px')}")
     out.append(f"#define MACRO_OLED_SHIFT_INTERVAL_SEC {as_int(oled['shift_interval_sec'], 'oled.shift_interval_sec')}")
     out.append(f"#define MACRO_OLED_I2C_SCL_HZ {as_int(oled['i2c_scl_hz'], 'oled.i2c_scl_hz')}")
+    out.append("")
+    out.append(f"#define MACRO_WIFI_PORTAL_ENABLED {c_bool(wifi_portal.get('enabled', False))}")
+    out.append(f"#define MACRO_WIFI_PORTAL_AP_SSID {c_str(str(wifi_portal.get('ap_ssid', 'MacroPad-Setup')))}")
+    out.append(f"#define MACRO_WIFI_PORTAL_AP_PASSWORD {c_str(str(wifi_portal.get('ap_password', '')))}")
+    out.append(f"#define MACRO_WIFI_PORTAL_AP_AUTH_MODE {as_token(wifi_portal.get('ap_auth_mode', 'WIFI_AUTH_OPEN'), 'wifi_portal.ap_auth_mode')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_AP_CHANNEL {as_int(wifi_portal.get('ap_channel', 1), 'wifi_portal.ap_channel')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_AP_MAX_CONNECTIONS {as_int(wifi_portal.get('ap_max_connections', 4), 'wifi_portal.ap_max_connections')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_TIMEOUT_SEC {as_int(wifi_portal.get('timeout_sec', 300), 'wifi_portal.timeout_sec')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_STA_CONNECT_TIMEOUT_MS {as_int(wifi_portal.get('sta_connect_timeout_ms', 12000), 'wifi_portal.sta_connect_timeout_ms')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_STA_MAX_RETRY {as_int(wifi_portal.get('sta_max_retry', 3), 'wifi_portal.sta_max_retry')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_SCAN_MAX_RESULTS {as_int(wifi_portal.get('scan_max_results', 20), 'wifi_portal.scan_max_results')}")
+    out.append(f"#define MACRO_WIFI_PORTAL_DNS_ENABLED {c_bool(wifi_portal.get('dns_captive_enabled', True))}")
     out.append("")
     out.append(f"#define MACRO_BUZZER_ENABLED {c_bool(buzzer['enabled'])}")
     out.append(f"#define MACRO_BUZZER_GPIO {as_token(buzzer['gpio'], 'buzzer.gpio')}")
