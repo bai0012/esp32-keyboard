@@ -20,6 +20,7 @@ Hardware reference is documented in `hardware_info.md`.
 - Optional touch hold-repeat (used for volume on layer 2 by default)
 - RGB layer/status feedback
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
+- Runtime `MACROPAD` logs are gated until TinyUSB CDC is connected (helps with COM re-enumeration after flashing)
 - OLED subsystem with clock scene, framebuffer primitives, and UTF-8 text entry points
 - Pluggable glyph-font interface for future multilingual rendering (including Chinese/CJK glyph packs)
 - Build-time OLED animation asset pipeline for boot/menu scenes (`assets/animations`)
@@ -81,6 +82,10 @@ idf.py size
 ```powershell
 idf.py -p <PORT> flash monitor
 ```
+
+Note:
+- On some hosts, bootloader and app enumerate on different COM ports.
+- Firmware runtime logs are intentionally delayed until CDC is ready to reduce lost early lines during re-enumeration.
 
 ## Configuration
 ### 1) Key/encoder/touch behavior

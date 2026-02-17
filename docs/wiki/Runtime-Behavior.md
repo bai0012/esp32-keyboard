@@ -3,6 +3,7 @@
 ## 1) Task Model
 - `input_task` (higher priority): scans keys/encoder/touch, sends HID reports, updates LEDs
 - `display_task`: refreshes OLED clock every 200ms
+- Runtime `MACROPAD` info logs are emitted only after TinyUSB CDC reports connected.
 
 ## 2) Key Handling
 - GPIO input is debounced (`DEBOUNCE_MS`).

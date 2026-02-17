@@ -8,6 +8,8 @@
 - Check logs for mount/ready state.
 - Confirm USB cable/port quality.
 - Confirm HID init path ran (`macropad_usb_init`).
+- On some systems, bootloader COM port and app COM port differ (re-enumeration).
+- Firmware now delays `MACROPAD` info logs until CDC is connected, reducing lost early logs during COM switch.
 
 ## 3) Touch Swipe Misses or False Triggers
 - Enable debug logs (`MACRO_TOUCH_DEBUG_LOG_ENABLE`).

@@ -8,6 +8,8 @@
 
 #include "esp_log.h"
 
+#include "tusb.h"
+
 #include "keymap_config.h"
 
 #include "touch_slider.h"
@@ -16,6 +18,18 @@
 
 #define TOUCH_LEFT_PAD TOUCH_PAD_NUM11
 #define TOUCH_RIGHT_PAD TOUCH_PAD_NUM10
+
+static inline bool touch_log_ready(void)
+{
+    return tud_cdc_connected();
+}
+
+#define TOUCH_LOGI(fmt, ...)          \
+    do {                              \
+        if (touch_log_ready()) {      \
+            ESP_LOGI(TAG, fmt, ##__VA_ARGS__); \
+        }                             \
+    } while (0)
 
 typedef enum {
     TOUCH_SIDE_NONE = 0,
@@ -121,9 +135,12 @@ static void touch_log_debug(TickType_t now,
     if ((now - s_touch_last_debug_tick) < interval_ticks) {
         return;
     }
+    if (!touch_log_ready()) {
+        return;
+    }
     s_touch_last_debug_tick = now;
 
-    ESP_LOGI(TAG,
+    TOUCH_LOGI(
              "Touch dbg rawL=%lu rawR=%lu baseL=%lu baseR=%lu dLr=%lu dRr=%lu nL=%lu nR=%lu dL=%lu dR=%lu tot=%lu bal=%ld dom=%s eng=%d frz=%d lNow=%d rNow=%d sess=%d seenL=%d seenR=%d start=%s fired=%d flt=%ld org=%ld trv=%ld",
              (unsigned long)left_raw,
              (unsigned long)right_raw,
@@ -220,9 +237,9 @@ esp_err_t touch_slider_init(void)
 
     s_touch_left_baseline = (uint32_t)(left_sum / samples);
     s_touch_right_baseline = (uint32_t)(right_sum / samples);
-    ESP_LOGI(TAG, "Touch baseline left=%lu right=%lu",
-             (unsigned long)s_touch_left_baseline,
-             (unsigned long)s_touch_right_baseline);
+    TOUCH_LOGI("Touch baseline left=%lu right=%lu",
+               (unsigned long)s_touch_left_baseline,
+               (unsigned long)s_touch_right_baseline);
     return ESP_OK;
 }
 
@@ -518,14 +535,14 @@ void touch_slider_update(TickType_t now, uint8_t active_layer, touch_consumer_se
                 }
 
                 if (usage != 0) {
-                    ESP_LOGI(TAG, "Touch slide %s (L%u) rawL=%lu rawR=%lu dL=%lu dR=%lu usage=0x%X",
-                             gesture,
-                             (unsigned)active_layer + 1,
-                             (unsigned long)left_log_raw,
-                             (unsigned long)right_log_raw,
-                             (unsigned long)left_delta,
-                             (unsigned long)right_delta,
-                             usage);
+                    TOUCH_LOGI("Touch slide %s (L%u) rawL=%lu rawR=%lu dL=%lu dR=%lu usage=0x%X",
+                               gesture,
+                               (unsigned)active_layer + 1,
+                               (unsigned long)left_log_raw,
+                               (unsigned long)right_log_raw,
+                               (unsigned long)left_delta,
+                               (unsigned long)right_delta,
+                               usage);
                     if (send_consumer != NULL) {
                         send_consumer(usage);
                     }
@@ -558,9 +575,9 @@ void touch_slider_update(TickType_t now, uint8_t active_layer, touch_consumer_se
             s_touch_hold_usage = 0;
         } else if (now >= s_touch_hold_next_tick) {
             if (s_touch_hold_usage != 0) {
-                ESP_LOGI(TAG, "Touch hold repeat (L%u) usage=0x%X",
-                         (unsigned)active_layer + 1,
-                         s_touch_hold_usage);
+                TOUCH_LOGI("Touch hold repeat (L%u) usage=0x%X",
+                           (unsigned)active_layer + 1,
+                           s_touch_hold_usage);
                 if (send_consumer != NULL) {
                     send_consumer(s_touch_hold_usage);
                 }

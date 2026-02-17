@@ -27,6 +27,10 @@ Use this after build to verify app image growth against OTA slot capacity.
 idf.py -p <PORT> flash monitor
 ```
 
+USB enumeration note:
+- Some hosts show one COM port for bootloader and another for the app.
+- App-level `MACROPAD` logs are held until CDC is connected to avoid dropping early lines during that switch.
+
 ## 5) Common Build-Time Config
 - `sdkconfig.defaults` sets default target and TinyUSB options.
 - `main/Kconfig.projbuild` exposes project-level options for Wi-Fi/SNTP/TZ.

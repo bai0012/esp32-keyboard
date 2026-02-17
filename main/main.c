@@ -46,6 +46,8 @@
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
 #define LED_STATUS_DEBOUNCE_MS 120
+#define CDC_LOG_READY_TIMEOUT_MS 12000
+#define CDC_LOG_POLL_MS 25
 #define BOOT_ANIMATION_MAX_FRAMES 240
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
@@ -84,9 +86,34 @@ static bool debounce_update(debounce_state_t *state,
                             TickType_t now,
                             TickType_t debounce_ticks);
 
+static inline bool cdc_log_ready(void)
+{
+    return tud_cdc_connected();
+}
+
+#define APP_LOGI(fmt, ...)            \
+    do {                              \
+        if (cdc_log_ready()) {        \
+            ESP_LOGI(TAG, fmt, ##__VA_ARGS__); \
+        }                             \
+    } while (0)
+
 static inline void mark_user_activity(TickType_t now)
 {
     s_last_user_activity_tick = now;
+}
+
+static void wait_for_cdc_log_ready(void)
+{
+    const TickType_t start = xTaskGetTickCount();
+    const TickType_t timeout_ticks = pdMS_TO_TICKS(CDC_LOG_READY_TIMEOUT_MS);
+    const TickType_t poll_ticks = pdMS_TO_TICKS(CDC_LOG_POLL_MS);
+
+    while (!tud_cdc_connected() && ((xTaskGetTickCount() - start) < timeout_ticks)) {
+        vTaskDelay(poll_ticks);
+    }
+
+    APP_LOGI("CDC ready, runtime logs enabled");
 }
 
 static void play_boot_animation(void)
@@ -171,7 +198,7 @@ static void set_active_layer(uint8_t layer)
     }
 
     s_active_layer = layer;
-    ESP_LOGI(TAG, "Switched to Layer %u", (unsigned)s_active_layer + 1);
+    APP_LOGI("Switched to Layer %u", (unsigned)s_active_layer + 1);
     buzzer_play_layer_switch(s_active_layer);
     macropad_send_keyboard_report(s_key_pressed, s_active_layer);
 }
@@ -306,7 +333,7 @@ static void wifi_event_handler(void *arg,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
         if (!s_sntp_started) {
-            ESP_LOGI(TAG, "Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
+            APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
             esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
             esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
             esp_sntp_init();
@@ -341,7 +368,7 @@ static esp_err_t init_wifi_and_sntp(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Wi-Fi started, waiting for IP");
+    APP_LOGI("Wi-Fi started, waiting for IP");
     return ESP_OK;
 }
 
@@ -481,7 +508,7 @@ static void input_task(void *arg)
                     buzzer_play_keypress();
                 }
 
-                ESP_LOGI(TAG, "L%u Key[%u:%s] %s (gpio=%d type=%d usage=0x%X)",
+                APP_LOGI("L%u Key[%u:%s] %s (gpio=%d type=%d usage=0x%X)",
                          (unsigned)s_active_layer + 1,
                          (unsigned)i,
                          active_cfg->name,
@@ -517,7 +544,7 @@ static void input_task(void *arg)
                 s_encoder_tap_count++;
             }
             s_encoder_last_tap_tick = now;
-            ESP_LOGI(TAG, "Encoder tap count=%u", (unsigned)s_encoder_tap_count);
+            APP_LOGI("Encoder tap count=%u", (unsigned)s_encoder_tap_count);
         }
 
         if (s_encoder_tap_count > 0 && (now - s_encoder_last_tap_tick) > tap_window_ticks) {
@@ -528,13 +555,13 @@ static void input_task(void *arg)
                 taps == (uint8_t)MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT) {
                 s_encoder_single_pending = false;
                 const bool now_enabled = buzzer_toggle_enabled();
-                ESP_LOGI(TAG, "Buzzer %s via encoder taps=%u",
+                APP_LOGI("Buzzer %s via encoder taps=%u",
                          now_enabled ? "enabled" : "disabled",
                          (unsigned)taps);
             } else if (taps == 1) {
                 s_encoder_single_pending = true;
                 s_encoder_single_due_tick = now + pdMS_TO_TICKS(MACRO_ENCODER_SINGLE_TAP_DELAY_MS);
-                ESP_LOGI(TAG, "Encoder single tap pending (%u ms)", (unsigned)MACRO_ENCODER_SINGLE_TAP_DELAY_MS);
+                APP_LOGI("Encoder single tap pending (%u ms)", (unsigned)MACRO_ENCODER_SINGLE_TAP_DELAY_MS);
             } else if (taps == 2) {
                 s_encoder_single_pending = false;
                 set_active_layer(0);
@@ -550,7 +577,7 @@ static void input_task(void *arg)
         if (s_encoder_single_pending && now >= s_encoder_single_due_tick) {
             s_encoder_single_pending = false;
             const uint16_t usage = g_encoder_layer_config[s_active_layer].button_single_usage;
-            ESP_LOGI(TAG, "Encoder single tap (L%u) -> usage=0x%X", (unsigned)s_active_layer + 1, usage);
+            APP_LOGI("Encoder single tap (L%u) -> usage=0x%X", (unsigned)s_active_layer + 1, usage);
             send_consumer_report_with_activity(usage);
         }
 
@@ -567,7 +594,7 @@ static void input_task(void *arg)
                 g_encoder_layer_config[s_active_layer].cw_usage :
                 g_encoder_layer_config[s_active_layer].ccw_usage;
 
-            ESP_LOGI(TAG, "Encoder steps=%d (L%u) usage=0x%X", steps, (unsigned)s_active_layer + 1, usage);
+            APP_LOGI("Encoder steps=%d (L%u) usage=0x%X", steps, (unsigned)s_active_layer + 1, usage);
 
             for (int i = 0; i < abs(steps); ++i) {
                 send_consumer_report_with_activity(usage);
@@ -583,7 +610,7 @@ static void input_task(void *arg)
 
         if ((now - last_heartbeat) >= pdMS_TO_TICKS(2000)) {
             last_heartbeat = now;
-            ESP_LOGI(TAG, "alive mounted=%d hid_ready=%d k1=%d enc_btn=%d",
+            APP_LOGI("alive mounted=%d hid_ready=%d k1=%d enc_btn=%d",
                      tud_mounted(),
                      tud_hid_ready(),
                      gpio_get_level(scan_key_cfg(0)->gpio),
@@ -701,6 +728,8 @@ void app_main(void)
     s_last_user_activity_tick = xTaskGetTickCount();
 
     ESP_ERROR_CHECK(init_keys());
+    ESP_ERROR_CHECK(macropad_usb_init());
+    wait_for_cdc_log_ready();
     ESP_ERROR_CHECK(touch_slider_init());
     ESP_ERROR_CHECK(init_encoder());
     ESP_ERROR_CHECK(init_led_strip());
@@ -709,12 +738,11 @@ void app_main(void)
     ESP_ERROR_CHECK(oled_init());
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     play_boot_animation();
-    ESP_ERROR_CHECK(macropad_usb_init());
     ESP_ERROR_CHECK(init_wifi_and_sntp());
 
     xTaskCreate(display_task, "display_task", 4096, NULL, 4, NULL);
     xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL);
 
-    ESP_LOGI(TAG, "Macro keyboard started");
-    ESP_LOGI(TAG, "Edit mapping in config/keymap_config.yaml");
+    APP_LOGI("Macro keyboard started");
+    APP_LOGI("Edit mapping in config/keymap_config.yaml");
 }
