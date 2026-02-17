@@ -295,3 +295,23 @@ home_assistant:
     service_name: 'switch_1'
     # Example target: light.desk_lamp
     entity_id: 'switch.zimi_zncz01_b58e_switch'
+
+# Device web service foundation (future local integrations / web UI / automation).
+# This is intentionally designed as an extension-ready API surface.
+web_service:
+  # Master enable switch for the local HTTP API service.
+  enabled: true
+  # Local HTTP port for web service (captive portal keeps using port 80).
+  port: 8080
+  # Number of URI handlers reserved in the HTTP server.
+  max_uri_handlers: 12
+  # Task stack size for ESP-IDF HTTPD worker.
+  stack_size: 6144
+  # HTTP receive timeout for request body reads.
+  recv_timeout_sec: 5
+  # HTTP send timeout for response writes.
+  send_timeout_sec: 5
+  # Adds permissive CORS headers for browser-based tools.
+  cors_enabled: true
+  # Enables write/control routes (layer/buzzer/consumer); keep false unless needed.
+  control_enabled: false

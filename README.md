@@ -11,6 +11,7 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - Optional Wi-Fi SNTP time sync
 - Captive portal provisioning fallback (AP + web UI + credential persistence)
 - Optional Home Assistant REST event bridge
+- Local web service foundation (future web UI / local API integration)
 
 Hardware reference is documented in `hardware_info.md`.
 
@@ -40,6 +41,11 @@ Hardware reference is documented in `hardware_info.md`.
   - optional state polling (`/api/states/<entity_id>`) for OLED status line
   - optional direct service control (`/api/services/<domain>/<service>`)
   - configurable event families (layer/key/encoder/touch), timeout, and retry
+- Local web service foundation:
+  - versioned REST base (`/api/v1/*`)
+  - runtime state endpoints for health and input/layer telemetry
+  - optional control endpoints (layer/buzzer/consumer) gated by config
+  - auto lifecycle: starts only when STA is connected and captive portal is inactive
 - Wi-Fi provisioning fallback:
   - AP + captive portal web UI when credentials are missing or STA boot connect fails
   - persisted STA credentials (stored in Wi-Fi flash/NVS)
@@ -65,8 +71,9 @@ Hardware reference is documented in `hardware_info.md`.
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
 - `main/home_assistant.c`: Home Assistant event queue + REST publisher
 - `main/wifi_portal.c`: Wi-Fi STA boot connect + captive portal provisioning fallback
+- `main/web_service.c`: local REST web service module and control interface
 - `assets/animations/`: source images + manifest for OLED animations
-- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant/wifi_portal)
+- `config/keymap_config.yaml`: editable source-of-truth config (keys/encoder/touch/OLED/LED/buzzer/home_assistant/wifi_portal/web_service)
 - `tools/generate_keymap_header.py`: YAML -> `main/keymap_config.h` generator
 - `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
@@ -116,6 +123,7 @@ Edit `config/keymap_config.yaml`:
 - OLED protection and I2C speed (`oled.*`)
 - Home Assistant runtime publish behavior (`home_assistant.*`)
 - Captive portal behavior (`wifi_portal.*`)
+- Local web service behavior (`web_service.*`)
 
 Then rebuild. `main/keymap_config.h` is generated automatically from YAML.
 
@@ -171,6 +179,15 @@ Security note:
   - can optionally poll one Home Assistant entity state and show it on OLED
   - can optionally trigger one configured Home Assistant service call via encoder multi-tap
   - current event families: `layer_switch`, `key_event`, `encoder_step`, `touch_swipe`
+- Web service:
+  - read-only runtime endpoints:
+    - `GET /api/v1/health`
+    - `GET /api/v1/state`
+  - optional control endpoints (when `web_service.control_enabled=true`):
+    - `POST /api/v1/control/layer` with `{"layer":2}` (1-based layer index)
+    - `POST /api/v1/control/buzzer` with `{"enabled":true}`
+    - `POST /api/v1/control/consumer` with `{"usage":233}`
+  - service starts after Wi-Fi STA is connected and stops while captive portal is active
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
@@ -217,6 +234,7 @@ Security note:
 - Buzzer deep-dive: `docs/wiki/Buzzer-Feedback.md`
 - Home Assistant integration: `docs/wiki/Home-Assistant-Integration.md`
 - Wi-Fi provisioning/captive portal: `docs/wiki/Wi-Fi-Provisioning.md`
+- Web service API foundation: `docs/wiki/Web-Service.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

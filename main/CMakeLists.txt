@@ -5,6 +5,7 @@ idf_component_register(
         "home_assistant.c"
         "macropad_hid.c"
         "touch_slider.c"
+        "web_service.c"
         "oled.c"
         "wifi_portal.c"
     INCLUDE_DIRS "."

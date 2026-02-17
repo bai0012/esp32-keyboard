@@ -114,3 +114,14 @@ For buzzer behavior details and tuning guidance:
 - Optional runtime additions:
   - one polled display entity for OLED status
   - one direct service-control action bound to encoder multi-tap
+
+## 11) Local Web Service
+- Lifecycle is automatic and non-blocking:
+  - starts when STA is connected and captive portal is inactive
+  - stops when captive portal is active or STA disconnects
+- Read-only API exports runtime telemetry (`/api/v1/health`, `/api/v1/state`).
+- Optional write routes are gated by config (`web_service.control_enabled`).
+- Input loop continuously feeds layer/key/encoder/touch state into module cache.
+
+Details and route reference:
+- [Web Service](Web-Service)

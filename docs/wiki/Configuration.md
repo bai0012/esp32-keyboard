@@ -131,6 +131,14 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `home_assistant.control.service_domain` | `'light'` | Home Assistant service domain in `/api/services/<domain>/<service>`. |
 | `home_assistant.control.service_name` | `'toggle'` | Home Assistant service name (`toggle` / `turn_on` / `turn_off`). |
 | `home_assistant.control.entity_id` | `'light.desk_lamp'` | Target entity sent as `{\"entity_id\":\"...\"}` service payload. |
+| `web_service.enabled` | `true` | Enables local REST web service runtime. |
+| `web_service.port` | `8080` | HTTP port used by local web service (`captive portal remains on 80`). |
+| `web_service.max_uri_handlers` | `12` | Number of URI handlers reserved by HTTP server. |
+| `web_service.stack_size` | `6144` | HTTP server task stack size. |
+| `web_service.recv_timeout_sec` | `5` | Receive timeout for request body reads. |
+| `web_service.send_timeout_sec` | `5` | Send timeout for response writes. |
+| `web_service.cors_enabled` | `true` | Adds permissive CORS headers for browser-based tools. |
+| `web_service.control_enabled` | `false` | Enables write/control routes (`layer/buzzer/consumer`). |
 
 ## 3) Validation Rules
 - `counts.layer` must equal:
@@ -162,6 +170,7 @@ Security-sensitive Home Assistant values are intentionally stored in `menuconfig
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [Home Assistant Integration](Home-Assistant-Integration)
 - [Wi-Fi Provisioning](Wi-Fi-Provisioning)
+- [Web Service](Web-Service)
 
 ## 6) OLED Animation Asset Config
 These are file-based assets (not in `keymap_config.yaml`):

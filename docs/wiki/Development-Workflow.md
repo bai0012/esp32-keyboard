@@ -16,6 +16,7 @@
 - Touch gesture/hold logic: `main/touch_slider.*`
 - OLED rendering logic: `main/oled.*`
 - OLED animation assets/generator: `assets/animations/*`, `tools/generate_oled_animation_header.py`
+- Local REST API foundation: `main/web_service.*`
 
 ## 3) Validation Checklist
 - [ ] `idf.py build` passes

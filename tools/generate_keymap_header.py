@@ -100,6 +100,16 @@ def render_header(cfg: dict[str, Any]) -> str:
             "entity_id": "",
         },
     })
+    web_service = cfg.get("web_service", {
+        "enabled": True,
+        "port": 8080,
+        "max_uri_handlers": 12,
+        "stack_size": 6144,
+        "recv_timeout_sec": 5,
+        "send_timeout_sec": 5,
+        "cors_enabled": True,
+        "control_enabled": False,
+    })
     encoder_toggle = buzzer.get("encoder_toggle", {
         "enabled": False,
         "tap_count": 5,
@@ -291,6 +301,15 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_HA_CONTROL_DOMAIN {c_str(str(ha_control.get('service_domain', '')))}")
     out.append(f"#define MACRO_HA_CONTROL_SERVICE {c_str(str(ha_control.get('service_name', '')))}")
     out.append(f"#define MACRO_HA_CONTROL_ENTITY_ID {c_str(str(ha_control.get('entity_id', '')))}")
+    out.append("")
+    out.append(f"#define MACRO_WEB_SERVICE_ENABLED {c_bool(web_service.get('enabled', True))}")
+    out.append(f"#define MACRO_WEB_SERVICE_PORT {as_int(web_service.get('port', 8080), 'web_service.port')}")
+    out.append(f"#define MACRO_WEB_SERVICE_MAX_URI_HANDLERS {as_int(web_service.get('max_uri_handlers', 12), 'web_service.max_uri_handlers')}")
+    out.append(f"#define MACRO_WEB_SERVICE_STACK_SIZE {as_int(web_service.get('stack_size', 6144), 'web_service.stack_size')}")
+    out.append(f"#define MACRO_WEB_SERVICE_RECV_TIMEOUT_SEC {as_int(web_service.get('recv_timeout_sec', 5), 'web_service.recv_timeout_sec')}")
+    out.append(f"#define MACRO_WEB_SERVICE_SEND_TIMEOUT_SEC {as_int(web_service.get('send_timeout_sec', 5), 'web_service.send_timeout_sec')}")
+    out.append(f"#define MACRO_WEB_SERVICE_CORS_ENABLED {c_bool(web_service.get('cors_enabled', True))}")
+    out.append(f"#define MACRO_WEB_SERVICE_CONTROL_ENABLED {c_bool(web_service.get('control_enabled', False))}")
     out.append("")
     out.append(f"#define MACRO_TOUCH_TRIGGER_PERCENT {as_int(touch['trigger_percent'], 'touch.trigger_percent')}")
     out.append(f"#define MACRO_TOUCH_RELEASE_PERCENT {as_int(touch['release_percent'], 'touch.release_percent')}")

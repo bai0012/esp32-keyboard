@@ -31,6 +31,7 @@
 #include "oled_animation_assets.h"
 #include "touch_slider.h"
 #include "wifi_portal.h"
+#include "web_service.h"
 
 #define TAG "MACROPAD"
 
@@ -109,6 +110,7 @@ static inline bool cdc_log_ready(void)
 static inline void mark_user_activity(TickType_t now)
 {
     s_last_user_activity_tick = now;
+    web_service_mark_user_activity();
 }
 
 static void play_boot_animation(void)
@@ -170,6 +172,12 @@ static void send_consumer_report_with_activity(uint16_t usage)
     macropad_send_consumer_report(usage);
 }
 
+static void notify_touch_swipe(uint8_t layer_index, bool left_to_right, uint16_t usage)
+{
+    home_assistant_notify_touch_swipe(layer_index, left_to_right, usage);
+    web_service_record_touch_swipe(layer_index, left_to_right, usage);
+}
+
 static inline const macro_action_config_t *scan_key_cfg(size_t idx)
 {
     return &g_macro_keymap_layers[0][idx];
@@ -196,6 +204,7 @@ static void set_active_layer(uint8_t layer)
     APP_LOGI("Switched to Layer %u", (unsigned)s_active_layer + 1);
     buzzer_play_layer_switch(s_active_layer);
     home_assistant_notify_layer_switch(s_active_layer);
+    web_service_set_active_layer(s_active_layer);
     macropad_send_keyboard_report(s_key_pressed, s_active_layer);
 }
 
@@ -449,6 +458,29 @@ static esp_err_t init_led_strip(void)
     return update_key_leds();
 }
 
+static esp_err_t web_control_set_layer(uint8_t layer_index)
+{
+    if (layer_index >= MACRO_LAYER_COUNT) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    mark_user_activity(xTaskGetTickCount());
+    set_active_layer(layer_index);
+    return ESP_OK;
+}
+
+static esp_err_t web_control_set_buzzer(bool enabled)
+{
+    mark_user_activity(xTaskGetTickCount());
+    buzzer_set_enabled(enabled);
+    return ESP_OK;
+}
+
+static esp_err_t web_control_send_consumer(uint16_t usage)
+{
+    send_consumer_report_with_activity(usage);
+    return ESP_OK;
+}
+
 static void input_task(void *arg)
 {
     (void)arg;
@@ -485,6 +517,10 @@ static void input_task(void *arg)
                                                 s_key_pressed[i],
                                                 active_cfg->usage,
                                                 active_cfg->name);
+                web_service_record_key_event((uint8_t)i,
+                                             s_key_pressed[i],
+                                             active_cfg->usage,
+                                             active_cfg->name);
 
                 if (active_cfg->type == MACRO_ACTION_KEYBOARD) {
                     keyboard_state_changed = true;
@@ -501,7 +537,7 @@ static void input_task(void *arg)
         touch_slider_update(now,
                            s_active_layer,
                            send_consumer_report_with_activity,
-                           home_assistant_notify_touch_swipe);
+                           notify_touch_swipe);
 
         const int enc_level = gpio_get_level(EC11_GPIO_BUTTON);
         const bool enc_btn_raw = MACRO_ENCODER_BUTTON_ACTIVE_LOW ? (enc_level == 0) : (enc_level != 0);
@@ -586,6 +622,7 @@ static void input_task(void *arg)
 
             APP_LOGI("Encoder steps=%d (L%u) usage=0x%X", steps, (unsigned)s_active_layer + 1, usage);
             home_assistant_notify_encoder_step(s_active_layer, steps, usage);
+            web_service_record_encoder_step(steps, usage);
 
             for (int i = 0; i < abs(steps); ++i) {
                 send_consumer_report_with_activity(usage);
@@ -599,6 +636,7 @@ static void input_task(void *arg)
 
         buzzer_update(now);
         wifi_portal_poll();
+        web_service_poll();
 
         if ((now - last_heartbeat) >= pdMS_TO_TICKS(2000)) {
             last_heartbeat = now;
@@ -754,6 +792,16 @@ void app_main(void)
     ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
     play_boot_animation();
     ESP_ERROR_CHECK(wifi_portal_init());
+    ESP_ERROR_CHECK(web_service_init());
+    web_service_set_active_layer(s_active_layer);
+    {
+        const web_service_control_if_t control_if = {
+            .set_layer = web_control_set_layer,
+            .set_buzzer = web_control_set_buzzer,
+            .send_consumer = web_control_send_consumer,
+        };
+        ESP_ERROR_CHECK(web_service_register_control(&control_if));
+    }
     ESP_ERROR_CHECK(register_sntp_handler());
     ESP_ERROR_CHECK(wifi_portal_start());
     {

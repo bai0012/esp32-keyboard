@@ -176,3 +176,42 @@ Behavior/tuning reference:
 ### `bool wifi_portal_get_oled_lines(...);`
 - Exports short provisioning status lines for OLED rendering.
 - Returns `false` when provisioning scene is not active.
+
+## 7) Web Service Module (`main/web_service.h`)
+
+### `esp_err_t web_service_init(void);`
+- Initializes web-service module state/mutex.
+- Does not start HTTP server immediately.
+
+### `esp_err_t web_service_register_control(const web_service_control_if_t *iface);`
+- Registers optional control callbacks used by write routes.
+- Control routes stay blocked when `web_service.control_enabled=false`.
+
+### `void web_service_poll(void);`
+- Lifecycle service entry point.
+- Starts server when STA is connected and captive portal is inactive.
+- Stops server when captive portal is active or STA is disconnected.
+
+### `bool web_service_is_running(void);`
+- Returns current HTTP server running state.
+
+### `void web_service_mark_user_activity(void);`
+- Updates internal activity timestamp used by `/api/v1/state`.
+
+### `void web_service_set_active_layer(uint8_t layer_index);`
+- Updates exported active layer cache.
+
+### `void web_service_record_key_event(...)`
+### `void web_service_record_encoder_step(...)`
+### `void web_service_record_touch_swipe(...)`
+- Updates cached runtime telemetry consumed by REST state endpoint.
+
+### REST routes (implemented)
+- `GET /api/v1/health`
+  - health + lifecycle status.
+- `GET /api/v1/state`
+  - active layer, buzzer state, idle age, latest key/encoder/swipe telemetry.
+- `POST /api/v1/control/layer` with `{"layer":2}`
+- `POST /api/v1/control/buzzer` with `{"enabled":true}`
+- `POST /api/v1/control/consumer` with `{"usage":233}`
+  - control routes require `web_service.control_enabled=true`.
