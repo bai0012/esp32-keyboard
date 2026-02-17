@@ -35,6 +35,8 @@ Hardware reference is documented in `hardware_info.md`.
 - Home Assistant integration foundation:
   - queue-based non-blocking publish worker
   - REST event bus publishing (`/api/events/<event_type>`)
+  - optional state polling (`/api/states/<entity_id>`) for OLED status line
+  - optional direct service control (`/api/services/<domain>/<service>`)
   - configurable event families (layer/key/encoder/touch), timeout, and retry
 - OLED burn-in protection:
   - random pixel shift (default every 60s, +/-2 px)
@@ -146,6 +148,8 @@ Security note:
 - Home Assistant:
   - disabled by default and safe to leave unconfigured
   - publishes selected runtime events to Home Assistant event bus
+  - can optionally poll one Home Assistant entity state and show it on OLED
+  - can optionally trigger one configured Home Assistant service call via encoder multi-tap
   - current event families: `layer_switch`, `key_event`, `encoder_step`, `touch_swipe`
 - OLED protection:
   - Pixel shift applies to all rendered content.

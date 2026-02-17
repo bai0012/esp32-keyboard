@@ -262,6 +262,106 @@ esp_err_t oled_render_animation_frame_centered(const oled_animation_t *anim,
     return oled_present();
 }
 
+typedef struct {
+    char c;
+    const char *rows[5];
+} oled_tiny_glyph_t;
+
+static const oled_tiny_glyph_t s_tiny_font[] = {
+    {' ', {"000", "000", "000", "000", "000"}},
+    {'-', {"000", "000", "111", "000", "000"}},
+    {'_', {"000", "000", "000", "000", "111"}},
+    {'.', {"000", "000", "000", "000", "010"}},
+    {':', {"000", "010", "000", "010", "000"}},
+    {'/', {"001", "001", "010", "100", "100"}},
+    {'%', {"101", "001", "010", "100", "101"}},
+    {'0', {"111", "101", "101", "101", "111"}},
+    {'1', {"010", "110", "010", "010", "111"}},
+    {'2', {"111", "001", "111", "100", "111"}},
+    {'3', {"111", "001", "111", "001", "111"}},
+    {'4', {"101", "101", "111", "001", "001"}},
+    {'5', {"111", "100", "111", "001", "111"}},
+    {'6', {"111", "100", "111", "101", "111"}},
+    {'7', {"111", "001", "010", "010", "010"}},
+    {'8', {"111", "101", "111", "101", "111"}},
+    {'9', {"111", "101", "111", "001", "111"}},
+    {'A', {"111", "101", "111", "101", "101"}},
+    {'B', {"110", "101", "110", "101", "110"}},
+    {'C', {"111", "100", "100", "100", "111"}},
+    {'D', {"110", "101", "101", "101", "110"}},
+    {'E', {"111", "100", "111", "100", "111"}},
+    {'F', {"111", "100", "111", "100", "100"}},
+    {'G', {"111", "100", "101", "101", "111"}},
+    {'H', {"101", "101", "111", "101", "101"}},
+    {'I', {"111", "010", "010", "010", "111"}},
+    {'J', {"001", "001", "001", "101", "111"}},
+    {'K', {"101", "101", "110", "101", "101"}},
+    {'L', {"100", "100", "100", "100", "111"}},
+    {'M', {"101", "111", "111", "101", "101"}},
+    {'N', {"101", "111", "111", "111", "101"}},
+    {'O', {"111", "101", "101", "101", "111"}},
+    {'P', {"111", "101", "111", "100", "100"}},
+    {'Q', {"111", "101", "101", "111", "001"}},
+    {'R', {"111", "101", "111", "101", "101"}},
+    {'S', {"111", "100", "111", "001", "111"}},
+    {'T', {"111", "010", "010", "010", "010"}},
+    {'U', {"101", "101", "101", "101", "111"}},
+    {'V', {"101", "101", "101", "101", "010"}},
+    {'W', {"101", "101", "111", "111", "101"}},
+    {'X', {"101", "101", "010", "101", "101"}},
+    {'Y', {"101", "101", "010", "010", "010"}},
+    {'Z', {"111", "001", "010", "100", "111"}},
+    {'?', {"111", "001", "011", "000", "010"}},
+};
+
+static char oled_tiny_upper_ascii(char c)
+{
+    if (c >= 'a' && c <= 'z') {
+        return (char)(c - ('a' - 'A'));
+    }
+    return c;
+}
+
+static const oled_tiny_glyph_t *oled_tiny_find_glyph(char c)
+{
+    const char key = oled_tiny_upper_ascii(c);
+    for (size_t i = 0; i < (sizeof(s_tiny_font) / sizeof(s_tiny_font[0])); ++i) {
+        if (s_tiny_font[i].c == key) {
+            return &s_tiny_font[i];
+        }
+    }
+    for (size_t i = 0; i < (sizeof(s_tiny_font) / sizeof(s_tiny_font[0])); ++i) {
+        if (s_tiny_font[i].c == '?') {
+            return &s_tiny_font[i];
+        }
+    }
+    return NULL;
+}
+
+static void oled_draw_text_tiny(int x, int y, const char *text, size_t max_chars)
+{
+    if (text == NULL || max_chars == 0U) {
+        return;
+    }
+
+    size_t written = 0;
+    while (*text != '\0' && written < max_chars) {
+        const oled_tiny_glyph_t *glyph = oled_tiny_find_glyph(*text);
+        if (glyph != NULL) {
+            for (int row = 0; row < 5; ++row) {
+                for (int col = 0; col < 3; ++col) {
+                    if (glyph->rows[row][col] == '1') {
+                        oled_set_pixel(x + col, y + row, true);
+                    }
+                }
+            }
+        }
+        x += 4;
+        ++text;
+        ++written;
+    }
+}
+
 enum {
     SEG_A = 1 << 0,
     SEG_B = 1 << 1,
@@ -430,5 +530,22 @@ esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t sh
 
     oled_clear_buffer();
     oled_draw_clock(timeinfo, shift_x, shift_y);
+    return oled_present();
+}
+
+esp_err_t oled_render_clock_with_status(const struct tm *timeinfo,
+                                        const char *status_text,
+                                        int8_t shift_x,
+                                        int8_t shift_y)
+{
+    if (timeinfo == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    oled_clear_buffer();
+    oled_draw_clock(timeinfo, shift_x, (int8_t)(shift_y + 8));
+    if (status_text != NULL && status_text[0] != '\0') {
+        oled_draw_text_tiny(2 + shift_x, 2 + shift_y, status_text, 30);
+    }
     return oled_present();
 }

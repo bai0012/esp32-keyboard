@@ -59,3 +59,7 @@ esp_err_t oled_render_animation_frame_centered(const oled_animation_t *anim,
 
 // Current app-level convenience renderer (clock + sync marker).
 esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);
+esp_err_t oled_render_clock_with_status(const struct tm *timeinfo,
+                                        const char *status_text,
+                                        int8_t shift_x,
+                                        int8_t shift_y);

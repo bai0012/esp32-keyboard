@@ -73,6 +73,19 @@ def render_header(cfg: dict[str, Any]) -> str:
         "publish_key_event": False,
         "publish_encoder_step": False,
         "publish_touch_swipe": False,
+        "display": {
+            "enabled": False,
+            "entity_id": "",
+            "label": "HA",
+            "poll_interval_ms": 3000,
+        },
+        "control": {
+            "enabled": False,
+            "tap_count": 6,
+            "service_domain": "light",
+            "service_name": "toggle",
+            "entity_id": "",
+        },
     })
     encoder_toggle = buzzer.get("encoder_toggle", {
         "enabled": False,
@@ -241,6 +254,17 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_HA_PUBLISH_KEY_EVENT {c_bool(ha['publish_key_event'])}")
     out.append(f"#define MACRO_HA_PUBLISH_ENCODER_STEP {c_bool(ha['publish_encoder_step'])}")
     out.append(f"#define MACRO_HA_PUBLISH_TOUCH_SWIPE {c_bool(ha['publish_touch_swipe'])}")
+    ha_display = ha.get("display", {})
+    ha_control = ha.get("control", {})
+    out.append(f"#define MACRO_HA_DISPLAY_ENABLED {c_bool(ha_display.get('enabled', False))}")
+    out.append(f"#define MACRO_HA_DISPLAY_ENTITY_ID {c_str(str(ha_display.get('entity_id', '')))}")
+    out.append(f"#define MACRO_HA_DISPLAY_LABEL {c_str(str(ha_display.get('label', 'HA')))}")
+    out.append(f"#define MACRO_HA_DISPLAY_POLL_INTERVAL_MS {as_int(ha_display.get('poll_interval_ms', 3000), 'home_assistant.display.poll_interval_ms')}")
+    out.append(f"#define MACRO_HA_CONTROL_ENABLED {c_bool(ha_control.get('enabled', False))}")
+    out.append(f"#define MACRO_HA_CONTROL_TAP_COUNT {as_int(ha_control.get('tap_count', 6), 'home_assistant.control.tap_count')}")
+    out.append(f"#define MACRO_HA_CONTROL_DOMAIN {c_str(str(ha_control.get('service_domain', '')))}")
+    out.append(f"#define MACRO_HA_CONTROL_SERVICE {c_str(str(ha_control.get('service_name', '')))}")
+    out.append(f"#define MACRO_HA_CONTROL_ENTITY_ID {c_str(str(ha_control.get('entity_id', '')))}")
     out.append("")
     out.append(f"#define MACRO_TOUCH_TRIGGER_PERCENT {as_int(touch['trigger_percent'], 'touch.trigger_percent')}")
     out.append(f"#define MACRO_TOUCH_RELEASE_PERCENT {as_int(touch['release_percent'], 'touch.release_percent')}")

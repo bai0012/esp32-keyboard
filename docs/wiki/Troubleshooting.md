@@ -54,3 +54,21 @@
 - Ensure event family is enabled (for example `publish_layer_switch: true`).
 - Check Home Assistant is reachable from device network/VLAN.
 - If using HTTPS, verify server cert chain is trusted by ESP-IDF CRT bundle.
+
+## 9) Home Assistant State Not Shown on OLED
+- Confirm `home_assistant.display.enabled: true`.
+- Verify `home_assistant.display.entity_id` exists in Home Assistant.
+- Use Developer Tools -> States to confirm entity returns a valid `state`.
+- If custom `label` is empty, OLED line will use Home Assistant `friendly_name`.
+- Check network reachability and token permission (same as event bridge).
+
+## 10) Home Assistant Control Shortcut Not Triggering
+- Confirm `home_assistant.control.enabled: true`.
+- Verify `home_assistant.control.tap_count` does not conflict with:
+  - layer taps (`2/3/4+`)
+  - buzzer toggle tap count (if enabled)
+- Verify service endpoint inputs:
+  - `home_assistant.control.service_domain`
+  - `home_assistant.control.service_name`
+  - `home_assistant.control.entity_id`
+- Test equivalent call in Home Assistant Developer Tools -> Services.

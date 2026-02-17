@@ -69,6 +69,9 @@
 ### `esp_err_t oled_render_clock(const struct tm *timeinfo, int8_t shift_x, int8_t shift_y);`
 - Current default scene renderer used by `display_task` (`HH:MM:SS`).
 
+### `esp_err_t oled_render_clock_with_status(const struct tm *timeinfo, const char *status_text, int8_t shift_x, int8_t shift_y);`
+- Renders clock plus one compact status line (used for Home Assistant state display).
+
 Behavior/tuning reference:
 - [OLED Display](OLED-Display)
 
@@ -122,6 +125,14 @@ Behavior/tuning reference:
 
 ### `bool home_assistant_is_enabled(void);`
 - Returns runtime-enabled state of Home Assistant bridge.
+
+### `bool home_assistant_get_display_text(char *out, size_t out_size, uint32_t *age_ms);`
+- Returns cached Home Assistant display line from worker polling.
+- `age_ms` is optional and reports freshness of cached state text.
+
+### `esp_err_t home_assistant_trigger_default_control(void);`
+- Queues one configured Home Assistant service call action.
+- Intended for runtime shortcuts (for example encoder multi-tap).
 
 ### `void home_assistant_notify_layer_switch(uint8_t layer_index);`
 - Queues a layer-switch event when enabled by config.

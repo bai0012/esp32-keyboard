@@ -19,6 +19,9 @@
   - 2 taps: layer 1
   - 3 taps: layer 2
   - 4+ taps: layer 3
+- Optional Home Assistant control shortcut:
+  - configurable tap count (`home_assistant.control.tap_count`)
+  - triggers one service call (`/api/services/<domain>/<service>`)
 
 ## 4) Touch Slider Handling
 - Swipe direction:
@@ -44,6 +47,9 @@
 - Sync marker behavior:
   - synced: top-right indicator
   - unsynced: bottom bar indicator
+- When `home_assistant.display.enabled=true` and state is available:
+  - OLED shows clock with an additional status line (example: `HA: ON`)
+  - state is polled from `/api/states/<entity_id>`
 
 ## 7) Buzzer Feedback
 - Buzzer playback is non-blocking and queue-driven.
@@ -82,8 +88,14 @@ For buzzer behavior details and tuning guidance:
 - Runtime events can be published asynchronously to HA REST event bus.
 - Publisher is queue-based and non-blocking for input/HID loops.
 - Configured through `home_assistant.*` in `config/keymap_config.yaml`.
+- Sensitive transport fields are set in menuconfig:
+  - `CONFIG_MACROPAD_HA_BASE_URL`
+  - `CONFIG_MACROPAD_HA_BEARER_TOKEN`
 - Current event families:
   - `layer_switch`
   - `key_event`
   - `encoder_step`
   - `touch_swipe`
+- Optional runtime additions:
+  - one polled display entity for OLED status
+  - one direct service-control action bound to encoder multi-tap

@@ -14,6 +14,7 @@ Primary source files:
 
 ## 2) What Is Rendered
 - Current scene: `HH:MM:SS` digital clock.
+- Optional Home Assistant status line: `LABEL: STATE` (for example `TEMP: 23.6`).
 - Sync marker:
   - SNTP synced: marker at top-right.
   - Not synced: marker near bottom.
@@ -23,7 +24,9 @@ Primary source files:
 ## 3) Render Pipeline
 1. `display_task` gets current local time.
 2. OLED protection state is updated (dim/off/inversion/shift).
-3. `oled_render_clock(timeinfo, shift_x, shift_y)` draws the current clock scene.
+3. Display path chooses one scene:
+   - `oled_render_clock(...)` (clock only), or
+   - `oled_render_clock_with_status(...)` (clock + status line).
 4. Framebuffer is flushed to the panel.
 
 Boot path:
@@ -100,6 +103,7 @@ I2C speed notes:
 6. Observe minute boundaries: verify subtle randomized pixel shift.
 7. Render UTF-8 strings with test glyph callbacks and verify fallback behavior for missing glyphs.
 8. Verify boot animation renders both frames and startup continues even if one frame is invalid.
+9. Enable Home Assistant display polling and verify status line updates while clock remains responsive.
 
 ## 10) Common Tuning Notes
 - If dimming is too aggressive: increase `MACRO_OLED_DIM_TIMEOUT_SEC`.

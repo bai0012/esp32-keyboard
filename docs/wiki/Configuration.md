@@ -110,6 +110,15 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `home_assistant.publish_key_event` | `false` | Enable/disable key press/release event publishing. |
 | `home_assistant.publish_encoder_step` | `false` | Enable/disable encoder step event publishing. |
 | `home_assistant.publish_touch_swipe` | `false` | Enable/disable touch swipe event publishing. |
+| `home_assistant.display.enabled` | `false` | Enable OLED status line from Home Assistant entity state polling. |
+| `home_assistant.display.entity_id` | `'sensor.living_room_temperature'` | Home Assistant entity to poll via `/api/states/<entity_id>`. |
+| `home_assistant.display.label` | `'HA'` | Prefix label shown on OLED (`''` uses Home Assistant `friendly_name`). |
+| `home_assistant.display.poll_interval_ms` | `3000` | Poll period for state refresh. |
+| `home_assistant.control.enabled` | `false` | Enable direct Home Assistant service control shortcut. |
+| `home_assistant.control.tap_count` | `6` | Encoder multi-tap count that triggers the configured service call. |
+| `home_assistant.control.service_domain` | `'light'` | Home Assistant service domain in `/api/services/<domain>/<service>`. |
+| `home_assistant.control.service_name` | `'toggle'` | Home Assistant service name (`toggle` / `turn_on` / `turn_off`). |
+| `home_assistant.control.entity_id` | `'light.desk_lamp'` | Target entity sent as `{\"entity_id\":\"...\"}` service payload. |
 
 ## 3) Validation Rules
 - `counts.layer` must equal:

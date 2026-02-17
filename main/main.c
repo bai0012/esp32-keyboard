@@ -52,6 +52,7 @@
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
 #define BOOT_ANIMATION_MAX_FRAME_MS 1000
+#define HA_DISPLAY_STALE_MS 120000U
 
 #define WIFI_CONNECTED_BIT BIT0
 
@@ -558,7 +559,20 @@ static void input_task(void *arg)
             const uint8_t taps = s_encoder_tap_count;
             s_encoder_tap_count = 0;
 
-            if (MACRO_BUZZER_ENCODER_TOGGLE_ENABLED &&
+            if (MACRO_HA_CONTROL_ENABLED &&
+                taps == (uint8_t)MACRO_HA_CONTROL_TAP_COUNT) {
+                s_encoder_single_pending = false;
+                const esp_err_t ha_err = home_assistant_trigger_default_control();
+                if (ha_err == ESP_OK) {
+                    APP_LOGI("HA control queued (domain=%s service=%s entity=%s taps=%u)",
+                             MACRO_HA_CONTROL_DOMAIN,
+                             MACRO_HA_CONTROL_SERVICE,
+                             MACRO_HA_CONTROL_ENTITY_ID,
+                             (unsigned)taps);
+                } else {
+                    APP_LOGI("HA control skipped err=%s", esp_err_to_name(ha_err));
+                }
+            } else if (MACRO_BUZZER_ENCODER_TOGGLE_ENABLED &&
                 taps == (uint8_t)MACRO_BUZZER_ENCODER_TOGGLE_TAP_COUNT) {
                 s_encoder_single_pending = false;
                 const bool now_enabled = buzzer_toggle_enabled();
@@ -709,7 +723,14 @@ static void display_task(void *arg)
         }
 
         if (display_enabled) {
-            esp_err_t err = oled_render_clock(&timeinfo, shift_x, shift_y);
+            char ha_line[96] = {0};
+            uint32_t ha_age_ms = 0;
+            const bool has_ha_text =
+                home_assistant_get_display_text(ha_line, sizeof(ha_line), &ha_age_ms) &&
+                (ha_age_ms <= HA_DISPLAY_STALE_MS);
+            esp_err_t err = has_ha_text
+                                ? oled_render_clock_with_status(&timeinfo, ha_line, shift_x, shift_y)
+                                : oled_render_clock(&timeinfo, shift_x, shift_y);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "OLED render failed: %s", esp_err_to_name(err));
             }

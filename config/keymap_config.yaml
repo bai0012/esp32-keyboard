@@ -239,3 +239,29 @@ home_assistant:
   publish_key_event: false
   publish_encoder_step: false
   publish_touch_swipe: false
+
+  # Optional OLED status line sourced from Home Assistant state API:
+  # GET /api/states/<entity_id>
+  display:
+    enabled: false
+    # Example: sensor.living_room_temperature
+    entity_id: ''
+    # Optional short label shown on OLED before state value.
+    # Empty string uses Home Assistant friendly_name.
+    label: 'HA'
+    # Poll interval for state refresh.
+    poll_interval_ms: 3000
+
+  # Optional direct Home Assistant service control via encoder multi-tap.
+  # When triggered:
+  # POST /api/services/<service_domain>/<service_name> with {"entity_id":"..."}
+  control:
+    enabled: false
+    # Keep this away from 1..4 (single/layer taps) and away from buzzer toggle tap count.
+    tap_count: 6
+    # Examples: light / switch / input_boolean / script
+    service_domain: 'light'
+    # Example service: toggle / turn_on / turn_off
+    service_name: 'toggle'
+    # Example target: light.desk_lamp
+    entity_id: ''

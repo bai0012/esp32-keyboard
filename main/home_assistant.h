@@ -1,12 +1,15 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "esp_err.h"
 
 esp_err_t home_assistant_init(void);
 bool home_assistant_is_enabled(void);
+bool home_assistant_get_display_text(char *out, size_t out_size, uint32_t *age_ms);
+esp_err_t home_assistant_trigger_default_control(void);
 
 void home_assistant_notify_layer_switch(uint8_t layer_index);
 void home_assistant_notify_key_event(uint8_t layer_index,
