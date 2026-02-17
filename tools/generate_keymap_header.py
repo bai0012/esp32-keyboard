@@ -177,6 +177,7 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append("")
     out.append(f"#define MACRO_LED_INDICATOR_BRIGHTNESS {as_int(led['indicator_brightness'], 'led.indicator_brightness')}")
     out.append(f"#define MACRO_LED_KEY_BRIGHTNESS {as_int(led['key_brightness'], 'led.key_brightness')}")
+    out.append(f"#define MACRO_LED_OFF_TIMEOUT_SEC {as_int(led['off_timeout_sec'], 'led.off_timeout_sec')}")
     out.append(f"#define MACRO_LAYER_KEY_DIM_SCALE {as_int(led['layer_key_dim_scale'], 'led.layer_key_dim_scale')}")
     out.append(f"#define MACRO_LAYER_KEY_ACTIVE_SCALE {as_int(led['layer_key_active_scale'], 'led.layer_key_active_scale')}")
     out.append("")

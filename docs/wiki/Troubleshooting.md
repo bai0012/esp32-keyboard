@@ -47,6 +47,8 @@
 - Tune brightness groups in `config/keymap_config.yaml`:
   - `MACRO_LED_INDICATOR_BRIGHTNESS`
   - `MACRO_LED_KEY_BRIGHTNESS`
+- If LEDs seem to "turn off unexpectedly" after idle:
+  - check `led.off_timeout_sec` (`0` disables automatic RGB off)
 
 ## 8) Home Assistant Events Not Received
 - Confirm `home_assistant.enabled: true`.

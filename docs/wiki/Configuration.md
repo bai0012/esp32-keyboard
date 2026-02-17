@@ -32,6 +32,7 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `layer_backlight_colors[].b` | `0` | Layer base blue channel (0..255). |
 | `led.indicator_brightness` | `16` | Brightness group for LEDs `0/1/2` (USB/HID/layer indicator). |
 | `led.key_brightness` | `10` | Brightness group for key backlight LEDs. |
+| `led.off_timeout_sec` | `180` | Inactivity timeout before all RGB LEDs are turned off (`0` disables LED auto-off). |
 | `led.layer_key_dim_scale` | `45` | Idle scale applied to layer base color. |
 | `led.layer_key_active_scale` | `140` | Pressed-key scale applied to layer base color. |
 | `encoder.button_active_low` | `true` | Encoder button polarity. |

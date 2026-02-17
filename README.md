@@ -21,6 +21,7 @@ Hardware reference is documented in `hardware_info.md`.
 - Optional touch hold-repeat (used for volume on layer 2 by default)
 - RGB layer/status feedback
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
+  - inactivity auto-off timeout for all RGB LEDs
 - Runtime `MACROPAD` logs are gated until TinyUSB CDC is connected (helps with COM re-enumeration after flashing)
 - OLED subsystem with clock scene, framebuffer primitives, and UTF-8 text entry points
 - Pluggable glyph-font interface for future multilingual rendering (including Chinese/CJK glyph packs)
@@ -103,6 +104,7 @@ Edit `config/keymap_config.yaml`:
 - encoder maps (`encoder.layers`)
 - touch maps and tunables (`touch.*`)
 - LED brightness + layer color scales (`led.*`)
+  - includes `led.off_timeout_sec` to auto-off all RGB LEDs on inactivity
 - buzzer behavior + RTTTL melodies (`buzzer.*`)
 - OLED protection and I2C speed (`oled.*`)
 - Home Assistant runtime publish behavior (`home_assistant.*`)
@@ -154,6 +156,9 @@ Security note:
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.
+- RGB idle-off protection:
+  - all RGB LEDs turn off after `led.off_timeout_sec`
+  - any user input activity restores RGB lighting
 
 ## OLED Display Details
 ### 1) Display content

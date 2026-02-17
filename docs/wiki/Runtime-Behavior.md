@@ -41,6 +41,9 @@
 - LED anti-flicker behavior:
   - refresh is change-driven (no full strip refresh every scan loop)
   - USB/HID indicator states are debounced before being rendered
+- LED inactivity off:
+  - all RGB LEDs are forced off after `MACRO_LED_OFF_TIMEOUT_SEC` of no user input
+  - any new key/encoder/touch activity restores normal RGB output
 
 ## 6) Clock and Sync Indicator
 - OLED shows `HH:MM:SS`.

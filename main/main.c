@@ -226,6 +226,10 @@ static esp_err_t update_key_leds(void)
 
     const TickType_t now = xTaskGetTickCount();
     const TickType_t status_debounce_ticks = pdMS_TO_TICKS(LED_STATUS_DEBOUNCE_MS);
+    const TickType_t led_off_timeout_ticks = pdMS_TO_TICKS((uint32_t)MACRO_LED_OFF_TIMEOUT_SEC * 1000U);
+    const bool leds_off_by_idle =
+        (led_off_timeout_ticks > 0) &&
+        ((now - s_last_user_activity_tick) >= led_off_timeout_ticks);
     (void)debounce_update(&s_usb_mounted_db, tud_mounted(), now, status_debounce_ticks);
     (void)debounce_update(&s_usb_hid_ready_db, tud_hid_ready(), now, status_debounce_ticks);
 
@@ -241,34 +245,36 @@ static esp_err_t update_key_leds(void)
     const uint8_t key_active_b = (uint8_t)(((uint16_t)layer_color->b * MACRO_LAYER_KEY_ACTIVE_SCALE) / 255U);
     uint8_t frame[LED_STRIP_COUNT][3] = {0};
 
-    if (s_usb_mounted_db.stable_level) {
-        frame[0][0] = dim_indicator(0);
-        frame[0][1] = dim_indicator(40);
-        frame[0][2] = dim_indicator(0);
-    }
-    if (s_usb_hid_ready_db.stable_level) {
-        frame[1][0] = dim_indicator(0);
-        frame[1][1] = dim_indicator(0);
-        frame[1][2] = dim_indicator(40);
-    }
-    frame[2][0] = dim_indicator(layer_a_r);
-    frame[2][1] = dim_indicator(layer_a_g);
-    frame[2][2] = dim_indicator(layer_a_b);
-
-    for (size_t i = 0; i < KEY_COUNT; ++i) {
-        const macro_action_config_t *cfg = active_key_cfg(i);
-        if (cfg->led_index >= LED_STRIP_COUNT) {
-            continue;
+    if (!leds_off_by_idle) {
+        if (s_usb_mounted_db.stable_level) {
+            frame[0][0] = dim_indicator(0);
+            frame[0][1] = dim_indicator(40);
+            frame[0][2] = dim_indicator(0);
         }
+        if (s_usb_hid_ready_db.stable_level) {
+            frame[1][0] = dim_indicator(0);
+            frame[1][1] = dim_indicator(0);
+            frame[1][2] = dim_indicator(40);
+        }
+        frame[2][0] = dim_indicator(layer_a_r);
+        frame[2][1] = dim_indicator(layer_a_g);
+        frame[2][2] = dim_indicator(layer_a_b);
 
-        frame[cfg->led_index][0] = dim_key(key_dim_r);
-        frame[cfg->led_index][1] = dim_key(key_dim_g);
-        frame[cfg->led_index][2] = dim_key(key_dim_b);
+        for (size_t i = 0; i < KEY_COUNT; ++i) {
+            const macro_action_config_t *cfg = active_key_cfg(i);
+            if (cfg->led_index >= LED_STRIP_COUNT) {
+                continue;
+            }
 
-        if (s_key_pressed[i]) {
-            frame[cfg->led_index][0] = dim_key(key_active_r);
-            frame[cfg->led_index][1] = dim_key(key_active_g);
-            frame[cfg->led_index][2] = dim_key(key_active_b);
+            frame[cfg->led_index][0] = dim_key(key_dim_r);
+            frame[cfg->led_index][1] = dim_key(key_dim_g);
+            frame[cfg->led_index][2] = dim_key(key_dim_b);
+
+            if (s_key_pressed[i]) {
+                frame[cfg->led_index][0] = dim_key(key_active_r);
+                frame[cfg->led_index][1] = dim_key(key_active_g);
+                frame[cfg->led_index][2] = dim_key(key_active_b);
+            }
         }
     }
 

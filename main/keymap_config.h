@@ -104,6 +104,7 @@ static const macro_rgb_t g_layer_backlight_color[MACRO_LAYER_COUNT] = {
 
 #define MACRO_LED_INDICATOR_BRIGHTNESS 16
 #define MACRO_LED_KEY_BRIGHTNESS 10
+#define MACRO_LED_OFF_TIMEOUT_SEC 180
 #define MACRO_LAYER_KEY_DIM_SCALE 45
 #define MACRO_LAYER_KEY_ACTIVE_SCALE 140
 
@@ -157,7 +158,7 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_BUZZER_RTTTL_TOGGLE_ON "bon:d=32,o=6,b=180:g"
 #define MACRO_BUZZER_RTTTL_TOGGLE_OFF "boff:d=32,o=5,b=180:e"
 
-#define MACRO_HA_ENABLED false
+#define MACRO_HA_ENABLED true
 #define MACRO_HA_DEVICE_NAME "esp32-macropad"
 #define MACRO_HA_EVENT_PREFIX "macropad"
 #define MACRO_HA_REQUEST_TIMEOUT_MS 1800
@@ -169,14 +170,14 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_HA_PUBLISH_ENCODER_STEP false
 #define MACRO_HA_PUBLISH_TOUCH_SWIPE false
 #define MACRO_HA_DISPLAY_ENABLED false
-#define MACRO_HA_DISPLAY_ENTITY_ID ""
-#define MACRO_HA_DISPLAY_LABEL "HA"
+#define MACRO_HA_DISPLAY_ENTITY_ID "sensor.qmi_psv3_0a92_electric_power"
+#define MACRO_HA_DISPLAY_LABEL "Power"
 #define MACRO_HA_DISPLAY_POLL_INTERVAL_MS 3000
 #define MACRO_HA_CONTROL_ENABLED false
 #define MACRO_HA_CONTROL_TAP_COUNT 6
-#define MACRO_HA_CONTROL_DOMAIN "light"
-#define MACRO_HA_CONTROL_SERVICE "toggle"
-#define MACRO_HA_CONTROL_ENTITY_ID ""
+#define MACRO_HA_CONTROL_DOMAIN "switch"
+#define MACRO_HA_CONTROL_SERVICE "switch_1"
+#define MACRO_HA_CONTROL_ENTITY_ID "switch.zimi_zncz01_b58e_switch"
 
 #define MACRO_TOUCH_TRIGGER_PERCENT 85
 #define MACRO_TOUCH_RELEASE_PERCENT 92

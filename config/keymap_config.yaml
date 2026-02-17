@@ -82,6 +82,8 @@ led:
   indicator_brightness: 16
   # Key backlight LED group, 0..255.
   key_brightness: 10
+  # Time to turn off all RGB LEDs when no input is detected (0 = never off).
+  off_timeout_sec: 180
   # Idle scale applied to layer_backlight_colors, 0..255.
   layer_key_dim_scale: 45
   # Pressed-key scale applied to layer_backlight_colors, 0..255.
@@ -218,7 +220,7 @@ buzzer:
 # This is prepared as an integration foundation for future automations.
 home_assistant:
   # Master switch. Keep false until Home Assistant endpoint/token are configured.
-  enabled: false
+  enabled: true
   # Security-sensitive transport fields are set via menuconfig:
   # - CONFIG_MACROPAD_HA_BASE_URL
   # - CONFIG_MACROPAD_HA_BEARER_TOKEN
@@ -245,10 +247,10 @@ home_assistant:
   display:
     enabled: false
     # Example: sensor.living_room_temperature
-    entity_id: ''
+    entity_id: 'sensor.qmi_psv3_0a92_electric_power'
     # Optional short label shown on OLED before state value.
     # Empty string uses Home Assistant friendly_name.
-    label: 'HA'
+    label: 'Power'
     # Poll interval for state refresh.
     poll_interval_ms: 3000
 
@@ -260,8 +262,8 @@ home_assistant:
     # Keep this away from 1..4 (single/layer taps) and away from buzzer toggle tap count.
     tap_count: 6
     # Examples: light / switch / input_boolean / script
-    service_domain: 'light'
+    service_domain: 'switch'
     # Example service: toggle / turn_on / turn_off
-    service_name: 'toggle'
+    service_name: 'switch_1'
     # Example target: light.desk_lamp
-    entity_id: ''
+    entity_id: 'switch.zimi_zncz01_b58e_switch'
