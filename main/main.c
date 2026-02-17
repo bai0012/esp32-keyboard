@@ -46,8 +46,6 @@
 #define LED_STRIP_GPIO GPIO_NUM_38
 #define LED_STRIP_COUNT 15
 #define LED_STATUS_DEBOUNCE_MS 120
-#define CDC_LOG_READY_TIMEOUT_MS 12000
-#define CDC_LOG_POLL_MS 25
 #define BOOT_ANIMATION_MAX_FRAMES 240
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
@@ -101,19 +99,6 @@ static inline bool cdc_log_ready(void)
 static inline void mark_user_activity(TickType_t now)
 {
     s_last_user_activity_tick = now;
-}
-
-static void wait_for_cdc_log_ready(void)
-{
-    const TickType_t start = xTaskGetTickCount();
-    const TickType_t timeout_ticks = pdMS_TO_TICKS(CDC_LOG_READY_TIMEOUT_MS);
-    const TickType_t poll_ticks = pdMS_TO_TICKS(CDC_LOG_POLL_MS);
-
-    while (!tud_cdc_connected() && ((xTaskGetTickCount() - start) < timeout_ticks)) {
-        vTaskDelay(poll_ticks);
-    }
-
-    APP_LOGI("CDC ready, runtime logs enabled");
 }
 
 static void play_boot_animation(void)
@@ -729,7 +714,6 @@ void app_main(void)
 
     ESP_ERROR_CHECK(init_keys());
     ESP_ERROR_CHECK(macropad_usb_init());
-    wait_for_cdc_log_ready();
     ESP_ERROR_CHECK(touch_slider_init());
     ESP_ERROR_CHECK(init_encoder());
     ESP_ERROR_CHECK(init_led_strip());

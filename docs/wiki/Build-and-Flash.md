@@ -30,6 +30,7 @@ idf.py -p <PORT> flash monitor
 USB enumeration note:
 - Some hosts show one COM port for bootloader and another for the app.
 - App-level `MACROPAD` logs are held until CDC is connected to avoid dropping early lines during that switch.
+- Firmware startup does not wait for CDC; peripheral init and startup feedback continue immediately.
 
 ## 5) Common Build-Time Config
 - `sdkconfig.defaults` sets default target and TinyUSB options.
