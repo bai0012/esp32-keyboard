@@ -31,7 +31,7 @@
 
 #define WIFI_PORTAL_DEFAULT_AP_IP "192.168.4.1"
 #define WIFI_PORTAL_HTML_BUF 256
-#define WIFI_PORTAL_SCAN_BUF 48
+#define WIFI_PORTAL_SCAN_BUF 256
 #define WIFI_PORTAL_FORM_BUF 512
 #define WIFI_PORTAL_DNS_PORT 53
 
@@ -297,6 +297,67 @@ static void url_decode(char *dst, size_t dst_size, const char *src)
     dst[w] = '\0';
 }
 
+static void html_escape_copy(char *dst, size_t dst_size, const char *src)
+{
+    size_t w = 0;
+    if (dst == NULL || dst_size == 0U) {
+        return;
+    }
+    dst[0] = '\0';
+    if (src == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; src[i] != '\0'; ++i) {
+        const unsigned char c = (unsigned char)src[i];
+        const char *rep = NULL;
+        switch (c) {
+        case '&':
+            rep = "&amp;";
+            break;
+        case '<':
+            rep = "&lt;";
+            break;
+        case '>':
+            rep = "&gt;";
+            break;
+        case '"':
+            rep = "&quot;";
+            break;
+        case '\'':
+            rep = "&#39;";
+            break;
+        default:
+            break;
+        }
+
+        if (rep != NULL) {
+            const size_t rep_len = strlen(rep);
+            if ((w + rep_len) >= dst_size) {
+                break;
+            }
+            memcpy(dst + w, rep, rep_len);
+            w += rep_len;
+            continue;
+        }
+
+        if (c < 0x20U) {
+            if ((w + 1U) >= dst_size) {
+                break;
+            }
+            dst[w++] = '?';
+            continue;
+        }
+
+        if ((w + 1U) >= dst_size) {
+            break;
+        }
+        dst[w++] = (char)c;
+    }
+
+    dst[w] = '\0';
+}
+
 static bool form_get_value(const char *form, const char *key, char *out, size_t out_size)
 {
     if (form == NULL || key == NULL || out == NULL || out_size == 0U) {
@@ -464,13 +525,21 @@ static int wifi_scan_to_options(char *out, size_t out_size)
         if (records[i].ssid[0] == '\0') {
             continue;
         }
+        char ssid_raw[33] = {0};
+        char ssid_html[128] = {0};
+        strlcpy(ssid_raw, (const char *)records[i].ssid, sizeof(ssid_raw));
+        html_escape_copy(ssid_html, sizeof(ssid_html), ssid_raw);
+
         char line[WIFI_PORTAL_SCAN_BUF] = {0};
-        (void)snprintf(line,
-                       sizeof(line),
-                       "<option value=\"%s\">%s (%ddBm)</option>\n",
-                       (const char *)records[i].ssid,
-                       (const char *)records[i].ssid,
-                       (int)records[i].rssi);
+        const int n = snprintf(line,
+                               sizeof(line),
+                               "<option value=\"%s\">%s (%ddBm)</option>\n",
+                               ssid_html,
+                               ssid_html,
+                               (int)records[i].rssi);
+        if (n <= 0 || (size_t)n >= sizeof(line)) {
+            continue;
+        }
         const size_t len = strlen(line);
         if ((used + len + 1U) >= out_size) {
             break;
