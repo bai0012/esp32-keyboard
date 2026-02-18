@@ -278,9 +278,11 @@ Security note:
   - mode changes are persisted then applied by controlled reboot
   - BLE mode keeps USB CDC for logs/monitor, but USB HID keyboard is disabled
 - BLE pairing:
-  - passkey pairing (from `menuconfig`)
+  - compatibility-first bonding policy (`ESP_LE_AUTH_BOND` default)
+  - static passkey remains configurable in `menuconfig` for stricter policies
   - single-bond policy (new bond replaces old one)
   - pairing can be started via EC11/API
+  - pairing countdown/passkey overlay is hidden while BLE link is already connected
 
 ## OLED Display Details
 ### 1) Display content

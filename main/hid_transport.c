@@ -314,7 +314,7 @@ bool hid_transport_get_oled_lines(char *line0,
         (void)snprintf(line1, line1_size, "Idle");
     }
 
-    if (st.ble_pairing_window_active) {
+    if (st.ble_pairing_window_active && !st.ble_connected) {
         (void)snprintf(line2, line2_size, "Passkey %06" PRIu32, st.ble_passkey);
         if (st.ble_pairing_remaining_ms > 0) {
             (void)snprintf(line3,

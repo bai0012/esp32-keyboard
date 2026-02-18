@@ -309,6 +309,9 @@ static void ble_hidd_event_callback(void *handler_args, esp_event_base_t base, i
         ble_lock();
         s_ble.connected = true;
         s_ble.advertising = false;
+        /* Connected sessions should not keep showing pairing countdown overlay. */
+        s_ble.pairing_window_active = false;
+        s_ble.pairing_deadline_tick = 0;
         ble_unlock();
         break;
     case ESP_HIDD_DISCONNECT_EVENT:
@@ -326,8 +329,9 @@ static void ble_hidd_event_callback(void *handler_args, esp_event_base_t base, i
 
 static esp_err_t ble_setup_security(uint32_t passkey)
 {
-    esp_ble_auth_req_t auth_req = ESP_LE_AUTH_REQ_SC_MITM_BOND;
-    esp_ble_io_cap_t iocap = ESP_IO_CAP_OUT;
+    /* Prefer broad host compatibility. MitM/display-only pairing can be enabled later by policy. */
+    esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND;
+    esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;
     uint8_t key_size = 16;
     uint8_t init_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
     uint8_t rsp_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
@@ -356,6 +360,7 @@ static esp_err_t ble_setup_security(uint32_t passkey)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "set static passkey failed: %s", esp_err_to_name(err));
     }
+    ESP_LOGI(TAG, "security configured auth_req=%u iocap=%u passkey=%06" PRIu32, (unsigned)auth_req, (unsigned)iocap, passkey);
     return ESP_OK;
 }
 

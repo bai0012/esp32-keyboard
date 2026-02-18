@@ -27,12 +27,13 @@ Precedence in tap dispatcher:
 
 ## 3) Pairing and Bonding
 - Security model:
-  - passkey pairing + bonding
-  - static passkey is configured in `menuconfig`
+  - bond-first compatibility mode (default): `auth_req=ESP_LE_AUTH_BOND`
+  - static passkey remains configured in `menuconfig` for future stricter pairing policy
 - Pairing window:
   - starts automatically in BLE mode when no bond exists
   - can be started manually via API: `POST /api/v1/system/ble/pair`
   - optional body: `{"timeout_sec":120}`
+  - OLED passkey/countdown overlay is suppressed while link state is already `Connected`
 - Bond policy:
   - single-bond host policy
   - when a new bond is accepted, old bond is removed
