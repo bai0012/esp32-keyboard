@@ -121,10 +121,18 @@ static int log_store_vprintf(const char *fmt, va_list args)
         return 0;
     }
 
+    const char *payload = formatted;
+    if (formatted[0] != '\0' && formatted[1] == ' ' && formatted[2] == '(') {
+        const char *end_ts = strstr(formatted, ") ");
+        if (end_ts != NULL && end_ts[2] != '\0') {
+            payload = end_ts + 2;
+        }
+    }
+
     char prefix[32] = {0};
     char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 48U] = {0};
     build_prefix(prefix, sizeof(prefix));
-    (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", prefix, formatted);
+    (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", prefix, payload);
 
     push_log_line(with_prefix);
     return log_store_prev_output("%s\n", with_prefix);
