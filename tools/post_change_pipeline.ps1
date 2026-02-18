@@ -181,6 +181,43 @@ function Run-IdfBuild {
     }
 }
 
+function Bump-ProjectVersion {
+    param(
+        [string]$Repo,
+        [string]$BumpKind
+    )
+
+    $versionFile = Join-Path $Repo "version.txt"
+    $raw = "1.0.0"
+    if (Test-Path -LiteralPath $versionFile) {
+        $raw = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            $raw = "1.0.0"
+        }
+    }
+
+    if ($raw -notmatch '^(\d+)\.(\d+)\.(\d+)$') {
+        throw "Invalid version.txt format: '$raw' (expected MAJOR.MINOR.PATCH)"
+    }
+
+    [int]$major = $Matches[1]
+    [int]$minor = $Matches[2]
+    [int]$patch = $Matches[3]
+
+    if ($BumpKind -eq "minor") {
+        $minor += 1
+        $patch = 0
+    }
+    else {
+        $patch += 1
+    }
+
+    $next = "$major.$minor.$patch"
+    Set-Content -LiteralPath $versionFile -Value "$next`n" -Encoding UTF8
+    Write-Host "Version bumped ($BumpKind): $raw -> $next"
+    return "version.txt"
+}
+
 function Sync-WikiDocs {
     param(
         [string]$MainRepo,
@@ -257,6 +294,12 @@ $baseline = Get-Content -LiteralPath $baselineFile -Raw | ConvertFrom-Json
 $currentMain = Get-RepoSnapshot -Repo $mainRepo
 $currentWiki = Get-RepoSnapshot -Repo $wikiRepo
 $touchedMain = Get-TouchedFilesSinceBaseline -BaselineRepo $baseline.main -CurrentRepo $currentMain
+
+$bumpKind = if ($Type -eq "feat") { "minor" } else { "patch" }
+$versionPath = Bump-ProjectVersion -Repo $mainRepo -BumpKind $bumpKind
+if ($touchedMain -notcontains $versionPath) {
+    $touchedMain += $versionPath
+}
 
 if (-not $touchedMain -or $touchedMain.Count -eq 0) {
     Write-Host "No-op: no effective main-repo file changes since baseline."

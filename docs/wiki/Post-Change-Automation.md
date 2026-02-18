@@ -41,6 +41,10 @@ Enforce a consistent per-request delivery pipeline:
 - Build gate:
   - runs IDF init + `idf.py build`
   - commit/push is blocked if build fails
+- Version bump:
+  - `version.txt` is auto-bumped before build in `finish` mode
+  - `-Type feat` => minor bump (`+0.1.0`, patch reset)
+  - all other types => patch bump (`+0.0.1`)
 - Push handling:
   - push once
   - on rejection: one `git pull --rebase`, then push retry

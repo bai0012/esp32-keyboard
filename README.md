@@ -119,6 +119,13 @@ Project-specific initialization command:
 idf.py build
 ```
 
+Versioning policy:
+- base version starts at `1.0.0`
+- each regular build bumps patch (`+0.0.1`)
+- each feature build (`feat`) bumps minor (`+0.1.0`, patch reset to `0`)
+- `version.txt` is the source of truth for firmware version
+- `tools/post_change_pipeline.ps1` auto-bumps `version.txt` in `finish` mode
+
 Check firmware size:
 
 ```powershell

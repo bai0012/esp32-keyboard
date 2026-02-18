@@ -27,6 +27,9 @@
 
 #define ADV_CFG_FLAG_RAW 0x01
 #define ADV_CFG_FLAG_SCAN_RSP 0x02
+#define BLE_FALLBACK_DEVICE_NAME "ESP32 MacroPad BLE"
+#define BLE_DEVICE_NAME_MAX_LEN 31
+#define BLE_SCAN_RSP_NAME_MAX_LEN 20
 
 typedef struct {
     bool initialized;
@@ -38,9 +41,11 @@ typedef struct {
     uint32_t passkey;
     bool adv_ready;
     uint8_t adv_cfg_done;
+    uint8_t adv_cfg_required_mask;
     bool adv_start_requested;
     esp_hidd_dev_t *hid_dev;
     SemaphoreHandle_t lock;
+    char device_name[BLE_DEVICE_NAME_MAX_LEN + 1];
     char peer_addr[18];
 } hid_ble_ctx_t;
 
@@ -189,6 +194,25 @@ static void ble_remove_all_other_bonds(const esp_bd_addr_t keep_bda)
     free(list);
 }
 
+static void ble_prepare_device_name(const char *configured_name, char *out, size_t out_size)
+{
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+
+    const char *src = configured_name;
+    if (src == NULL || src[0] == '\0') {
+        src = BLE_FALLBACK_DEVICE_NAME;
+        ESP_LOGW(TAG, "BLE device name is empty, fallback to \"%s\"", src);
+    }
+
+    strlcpy(out, src, out_size);
+    const size_t src_len = strlen(src);
+    if (src_len >= out_size) {
+        ESP_LOGW(TAG, "BLE device name too long, truncated to \"%s\"", out);
+    }
+}
+
 static void ble_start_adv_if_possible(void)
 {
     bool do_start = false;
@@ -213,16 +237,16 @@ static void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_p
     case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
         ble_lock();
         s_ble.adv_cfg_done |= ADV_CFG_FLAG_RAW;
-        s_ble.adv_ready = ((s_ble.adv_cfg_done & (ADV_CFG_FLAG_RAW | ADV_CFG_FLAG_SCAN_RSP)) ==
-                           (ADV_CFG_FLAG_RAW | ADV_CFG_FLAG_SCAN_RSP));
+        s_ble.adv_ready = ((s_ble.adv_cfg_done & s_ble.adv_cfg_required_mask) ==
+                           s_ble.adv_cfg_required_mask);
         ble_unlock();
         ble_start_adv_if_possible();
         break;
     case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
         ble_lock();
         s_ble.adv_cfg_done |= ADV_CFG_FLAG_SCAN_RSP;
-        s_ble.adv_ready = ((s_ble.adv_cfg_done & (ADV_CFG_FLAG_RAW | ADV_CFG_FLAG_SCAN_RSP)) ==
-                           (ADV_CFG_FLAG_RAW | ADV_CFG_FLAG_SCAN_RSP));
+        s_ble.adv_ready = ((s_ble.adv_cfg_done & s_ble.adv_cfg_required_mask) ==
+                           s_ble.adv_cfg_required_mask);
         ble_unlock();
         ble_start_adv_if_possible();
         break;
@@ -300,34 +324,38 @@ static esp_err_t ble_setup_security(uint32_t passkey)
     uint8_t init_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
     uint8_t rsp_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
 
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(auth_req)),
-                        TAG,
-                        "set auth req failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &iocap, sizeof(iocap)),
-                        TAG,
-                        "set iocap failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(init_key)),
-                        TAG,
-                        "set init key failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(rsp_key)),
-                        TAG,
-                        "set rsp key failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(key_size)),
-                        TAG,
-                        "set key size failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey)),
-                        TAG,
-                        "set static passkey failed");
+    esp_err_t err = esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(auth_req));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set auth req failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &iocap, sizeof(iocap));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set iocap failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(init_key));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set init key failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(rsp_key));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set rsp key failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(key_size));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set key size failed: %s", esp_err_to_name(err));
+    }
+    err = esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(passkey));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set static passkey failed: %s", esp_err_to_name(err));
+    }
     return ESP_OK;
 }
 
 esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
 {
-    if (device_name == NULL || device_name[0] == '\0') {
-        return ESP_ERR_INVALID_ARG;
-    }
     if (passkey > 999999UL) {
-        return ESP_ERR_INVALID_ARG;
+        ESP_LOGW(TAG, "BLE passkey %" PRIu32 " out of range, fallback to 123456", passkey);
+        passkey = 123456UL;
     }
 
     if (s_ble.initialized) {
@@ -338,6 +366,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     s_ble.lock = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_ble.lock != NULL, ESP_ERR_NO_MEM, TAG, "mutex alloc failed");
     s_ble.passkey = passkey;
+    ble_prepare_device_name(device_name, s_ble.device_name, sizeof(s_ble.device_name));
 
     esp_err_t err = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
     if (err != ESP_OK &&
@@ -369,20 +398,33 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
 
     ESP_RETURN_ON_ERROR(esp_ble_gap_register_callback(ble_gap_event_handler), TAG, "gap cb reg failed");
     ESP_RETURN_ON_ERROR(esp_ble_gatts_register_callback(esp_hidd_gatts_event_handler), TAG, "gatts cb reg failed");
-    ESP_RETURN_ON_ERROR(ble_setup_security(passkey), TAG, "ble security setup failed");
+    (void)ble_setup_security(passkey);
 
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_device_name(device_name), TAG, "set ble device name failed");
+    ESP_RETURN_ON_ERROR(esp_ble_gap_set_device_name(s_ble.device_name), TAG, "set ble device name failed");
 
     s_ble.adv_cfg_done = 0;
+    s_ble.adv_cfg_required_mask = ADV_CFG_FLAG_RAW;
     s_ble.adv_ready = false;
     ESP_RETURN_ON_ERROR(esp_ble_gap_config_adv_data(&s_adv_data), TAG, "config adv data failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gap_config_adv_data(&s_scan_rsp_data), TAG, "config scan rsp failed");
+    esp_ble_adv_data_t scan_rsp_cfg = s_scan_rsp_data;
+    if (strlen(s_ble.device_name) > BLE_SCAN_RSP_NAME_MAX_LEN) {
+        scan_rsp_cfg.include_name = false;
+        ESP_LOGW(TAG,
+                 "BLE device name too long for scan response; name omitted from scan response");
+    }
+    const esp_err_t scan_rsp_err = esp_ble_gap_config_adv_data(&scan_rsp_cfg);
+    if (scan_rsp_err == ESP_OK) {
+        s_ble.adv_cfg_required_mask |= ADV_CFG_FLAG_SCAN_RSP;
+    } else {
+        ESP_LOGW(TAG, "scan rsp adv-data disabled due to: %s", esp_err_to_name(scan_rsp_err));
+        s_ble.adv_cfg_done |= ADV_CFG_FLAG_SCAN_RSP;
+    }
 
     esp_hid_device_config_t hid_cfg = {
         .vendor_id = 0x303A,
         .product_id = 0x4011,
         .version = 0x0101,
-        .device_name = device_name,
+        .device_name = s_ble.device_name,
         .manufacturer_name = "Espressif",
         .serial_number = "123456",
         .report_maps = s_ble_report_maps,
@@ -398,7 +440,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     ble_refresh_bonded_locked();
     ble_unlock();
 
-    ESP_LOGI(TAG, "ready name=%s passkey=%06" PRIu32, device_name, passkey);
+    ESP_LOGI(TAG, "ready name=%s passkey=%06" PRIu32, s_ble.device_name, passkey);
     return ESP_OK;
 }
 
