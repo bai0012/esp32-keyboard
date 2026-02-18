@@ -27,7 +27,7 @@
 #define OTA_PROGRESS_LOG_INTERVAL_MS 1000U
 #define OTA_PROGRESS_BAR_WIDTH 14U
 #define OTA_CONFIRM_BANNER_MS 1500U
-#define OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES 24576U
+#define OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES 12288U
 #define OTA_SELF_CHECK_MAX_RETRIES 4U
 #define OTA_SELF_CHECK_RETRY_INTERVAL_MS 1500U
 
@@ -428,15 +428,12 @@ void ota_manager_poll(TickType_t now)
                              (unsigned)OTA_SELF_CHECK_MAX_RETRIES,
                              (unsigned)OTA_SELF_CHECK_RETRY_INTERVAL_MS);
                 } else {
-                    s_ota.state = OTA_MANAGER_STATE_ROLLBACK_REBOOTING;
-                    ota_set_error_locked("self-check failed");
-                    ota_unlock();
-                    ESP_LOGE(TAG, "Self-check failed after retries; rolling back");
-                    if (esp_ota_mark_app_invalid_rollback_and_reboot() != ESP_OK) {
-                        ESP_LOGE(TAG, "Rollback API failed; forcing reboot");
-                        esp_restart();
-                    }
-                    return;
+                    s_ota.self_check_free_heap_bytes = free_heap;
+                    ota_set_error_locked("self-check warning");
+                    ota_enter_wait_confirm(now);
+                    ESP_LOGW(TAG,
+                             "Self-check failed after retries; allowing manual confirm "
+                             "(timeout rollback still active)");
                 }
             }
         }

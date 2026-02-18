@@ -14,6 +14,8 @@
 #define LOG_STORE_MAX_ENTRIES 240U
 #define LOG_STORE_LINE_MAX 192U
 #define LOG_STORE_FORMAT_BUF_MAX 320U
+#define LOG_STORE_ACCUM_MAX 768U
+#define LOG_STORE_MAX_EMIT_LINES 12U
 
 typedef struct {
     bool initialized;
@@ -23,6 +25,11 @@ typedef struct {
     uint32_t next_id;
     size_t head;
     size_t count;
+    size_t accum_len;
+    bool pending_tag_line;
+    char accum[LOG_STORE_ACCUM_MAX];
+    char pending_monitor_prefix[32];
+    char pending_tag_payload[48];
     log_store_entry_t entries[LOG_STORE_MAX_ENTRIES];
 } log_store_state_t;
 
@@ -66,6 +73,43 @@ static int log_store_prev_output(const char *fmt, ...)
     return ret;
 }
 
+static void append_fragment_collect_lines(const char *fragment,
+                                          char out_lines[LOG_STORE_MAX_EMIT_LINES][LOG_STORE_FORMAT_BUF_MAX],
+                                          size_t *out_count)
+{
+    if (fragment == NULL || out_lines == NULL || out_count == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; fragment[i] != '\0'; ++i) {
+        const char c = fragment[i];
+        if (s_log_store.accum_len < (LOG_STORE_ACCUM_MAX - 1U)) {
+            s_log_store.accum[s_log_store.accum_len++] = c;
+            s_log_store.accum[s_log_store.accum_len] = '\0';
+        } else {
+            if (*out_count < LOG_STORE_MAX_EMIT_LINES) {
+                strlcpy(out_lines[*out_count], s_log_store.accum, LOG_STORE_FORMAT_BUF_MAX);
+                (*out_count)++;
+            }
+            s_log_store.accum_len = 0U;
+            s_log_store.accum[0] = '\0';
+            if (c != '\n') {
+                s_log_store.accum[s_log_store.accum_len++] = c;
+                s_log_store.accum[s_log_store.accum_len] = '\0';
+            }
+        }
+
+        if (c == '\n') {
+            if (*out_count < LOG_STORE_MAX_EMIT_LINES) {
+                strlcpy(out_lines[*out_count], s_log_store.accum, LOG_STORE_FORMAT_BUF_MAX);
+                (*out_count)++;
+            }
+            s_log_store.accum_len = 0U;
+            s_log_store.accum[0] = '\0';
+        }
+    }
+}
+
 static void build_prefix(char *out, size_t out_size)
 {
     if (out == NULL || out_size == 0U) {
@@ -106,14 +150,29 @@ static void push_log_line(const char *line)
     }
 }
 
-static int log_store_vprintf(const char *fmt, va_list args)
+static int emit_output_line(const char *monitor_prefix, bool has_monitor_prefix, const char *payload)
 {
-    char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
-    va_list format_args;
-    va_copy(format_args, args);
-    (void)vsnprintf(formatted, sizeof(formatted), fmt, format_args);
-    va_end(format_args);
+    char time_prefix[32] = {0};
+    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 80U] = {0};
+    build_prefix(time_prefix, sizeof(time_prefix));
+    if (has_monitor_prefix) {
+        (void)snprintf(with_prefix, sizeof(with_prefix), "%s [%s] %s", monitor_prefix, time_prefix, payload);
+    } else {
+        (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, payload);
+    }
 
+    push_log_line(with_prefix);
+    return log_store_prev_output("%s\n", with_prefix);
+}
+
+static int emit_rewritten_line(const char *raw_line)
+{
+    if (raw_line == NULL) {
+        return 0;
+    }
+
+    char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
+    strlcpy(formatted, raw_line, sizeof(formatted));
     trim_log_message(formatted);
     if (formatted[0] == '\0') {
         return 0;
@@ -140,17 +199,78 @@ static int log_store_vprintf(const char *fmt, va_list args)
         }
     }
 
-    char time_prefix[32] = {0};
-    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 80U] = {0};
-    build_prefix(time_prefix, sizeof(time_prefix));
-    if (has_monitor_prefix) {
-        (void)snprintf(with_prefix, sizeof(with_prefix), "%s [%s] %s", monitor_prefix, time_prefix, payload);
-    } else {
-        (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, payload);
+    int total = 0;
+    if (has_monitor_prefix && s_log_store.pending_tag_line) {
+        total += emit_output_line(s_log_store.pending_monitor_prefix, true, s_log_store.pending_tag_payload);
+        s_log_store.pending_tag_line = false;
+        s_log_store.pending_monitor_prefix[0] = '\0';
+        s_log_store.pending_tag_payload[0] = '\0';
     }
 
-    push_log_line(with_prefix);
-    return log_store_prev_output("%s\n", with_prefix);
+    if (!has_monitor_prefix && s_log_store.pending_tag_line) {
+        char merged_payload[LOG_STORE_FORMAT_BUF_MAX] = {0};
+        (void)snprintf(merged_payload,
+                       sizeof(merged_payload),
+                       "%s %s",
+                       s_log_store.pending_tag_payload,
+                       payload);
+        total += emit_output_line(s_log_store.pending_monitor_prefix, true, merged_payload);
+        s_log_store.pending_tag_line = false;
+        s_log_store.pending_monitor_prefix[0] = '\0';
+        s_log_store.pending_tag_payload[0] = '\0';
+        return total;
+    }
+
+    if (has_monitor_prefix) {
+        const size_t payload_len = strlen(payload);
+        const bool tag_only_line =
+            payload_len > 0U &&
+            payload[payload_len - 1U] == ':' &&
+            strchr(payload, ' ') == NULL;
+        if (tag_only_line) {
+            s_log_store.pending_tag_line = true;
+            strlcpy(s_log_store.pending_monitor_prefix,
+                    monitor_prefix,
+                    sizeof(s_log_store.pending_monitor_prefix));
+            strlcpy(s_log_store.pending_tag_payload, payload, sizeof(s_log_store.pending_tag_payload));
+            return total;
+        }
+        total += emit_output_line(monitor_prefix, true, payload);
+    } else {
+        total += emit_output_line(NULL, false, payload);
+    }
+    return total;
+}
+
+static int log_store_vprintf(const char *fmt, va_list args)
+{
+    char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
+    va_list format_args;
+    va_copy(format_args, args);
+    (void)vsnprintf(formatted, sizeof(formatted), fmt, format_args);
+    va_end(format_args);
+
+    if (formatted[0] == '\0') {
+        return 0;
+    }
+
+    char lines[LOG_STORE_MAX_EMIT_LINES][LOG_STORE_FORMAT_BUF_MAX] = {0};
+    size_t line_count = 0U;
+
+    if (s_log_store.lock != NULL) {
+        (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
+    }
+    append_fragment_collect_lines(formatted, lines, &line_count);
+    if (s_log_store.lock != NULL) {
+        (void)xSemaphoreGive(s_log_store.lock);
+    }
+
+    int total = 0;
+    for (size_t i = 0; i < line_count; ++i) {
+        total += emit_rewritten_line(lines[i]);
+    }
+
+    return total;
 }
 
 esp_err_t log_store_init(void)

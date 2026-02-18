@@ -153,6 +153,7 @@ Details and route reference:
 - Download success reboots into new image.
 - New image enters `PENDING_VERIFY` state (rollback enabled).
 - Device runs auto self-check for `ota.self_check_duration_ms`.
+- If self-check retries are exhausted, device stays in OTA confirm-wait with warning status.
 - OLED displays confirmation prompt.
 - If EC11 tap-count confirmation is received in time:
   - `esp_ota_mark_app_valid_cancel_rollback()` is called.

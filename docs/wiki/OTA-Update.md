@@ -24,7 +24,8 @@ Key responsibilities:
 3. On success, device reboots into new image.
 4. New image starts in `PENDING_VERIFY` state (rollback enabled).
 5. `ota_manager` runs self-check for `ota.self_check_duration_ms`.
-   - If a check fails, firmware retries self-check several times with a short interval before deciding rollback.
+   - If a check fails, firmware retries self-check several times with a short interval.
+   - If retries are exhausted, firmware enters confirmation-wait with warning status (timeout rollback remains active).
 6. OLED shows verification prompt.
 7. User presses EC11 N times (`ota.confirm_tap_count`, default `3`) to confirm.
 8. If confirmed, rollback is canceled and firmware is finalized.
@@ -41,7 +42,7 @@ Section in `config/keymap_config.yaml`:
 - `ota.self_check_duration_ms`
 - `ota.self_check_min_heap_bytes`
   - interpreted as warning threshold for low-memory conditions during post-OTA self-check
-  - rollback decisions use an additional internal hard floor to avoid false rollbacks under temporary memory pressure
+  - rollback decisions use an additional internal hard floor; retry exhaustion now falls back to manual-confirm wait
 
 Menuconfig (`MacroPad Configuration`):
 - `MACROPAD_OTA_DEFAULT_URL`

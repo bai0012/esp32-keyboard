@@ -67,7 +67,7 @@ Hardware reference is documented in `hardware_info.md`.
   - EC11 multi-tap confirmation (default: 3 taps) before finalizing update
   - post-confirm OLED banner auto-clears back to normal screen
   - configurable confirmation timeout with automatic rollback on timeout
-  - post-OTA self-check uses warning and hard-fail heap thresholds to reduce false rollback under transient low-memory conditions
+  - self-check retries before fallback; if checks still fail, firmware stays in manual-confirm state (timeout rollback still applies)
 - Wi-Fi provisioning fallback:
   - AP + captive portal web UI when credentials are missing or STA boot connect fails
   - persisted STA credentials (stored in Wi-Fi flash/NVS)
@@ -261,6 +261,7 @@ Security note:
 - OTA post-update verification:
   - new OTA image boots in pending-verify state (rollback enabled)
   - firmware runs self-check for `ota.self_check_duration_ms`
+  - if self-check keeps failing after retries, OTA stays in confirm-wait with warning status
   - OLED shows confirmation prompt
   - EC11 multi-tap confirm finalizes firmware
   - if `ota.confirm_timeout_sec` expires (non-zero), firmware rolls back automatically
