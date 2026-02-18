@@ -27,3 +27,5 @@ esp_err_t hid_ble_backend_start_pairing_window(uint32_t timeout_ms);
 esp_err_t hid_ble_backend_clear_bond(void);
 bool hid_ble_backend_is_ready(void);
 void hid_ble_backend_get_status(hid_ble_backend_status_t *out_status);
+const char *hid_ble_backend_last_init_step(void);
+esp_err_t hid_ble_backend_last_init_error(void);

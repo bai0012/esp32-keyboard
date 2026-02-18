@@ -81,7 +81,8 @@ esp_err_t hid_transport_init(void)
             s_ctx.ble_init_failed = true;
             s_ctx.ble_init_error = ble_err;
             ESP_LOGE(TAG,
-                     "BLE init failed in BLE mode: %s; falling back to USB mode",
+                     "BLE init failed in BLE mode at step=%s: %s; falling back to USB mode",
+                     hid_ble_backend_last_init_step(),
                      esp_err_to_name(ble_err));
             s_ctx.mode = HID_MODE_USB;
             if (MACRO_KEYBOARD_MODE_PERSIST) {
@@ -254,6 +255,7 @@ bool hid_transport_get_status(hid_transport_status_t *out_status)
         out_status->ble_bonded = ble.bonded;
         out_status->ble_init_failed = s_ctx.ble_init_failed;
         out_status->ble_init_error = s_ctx.ble_init_error;
+        strlcpy(out_status->ble_init_step, hid_ble_backend_last_init_step(), sizeof(out_status->ble_init_step));
         out_status->ble_pairing_window_active = ble.pairing_window_active;
         out_status->ble_pairing_remaining_ms = ble.pairing_remaining_ms;
         out_status->ble_passkey = ble.passkey;

@@ -50,6 +50,8 @@ typedef struct {
 } hid_ble_ctx_t;
 
 static hid_ble_ctx_t s_ble = {0};
+static const char *s_last_init_step = "idle";
+static esp_err_t s_last_init_error = ESP_OK;
 
 /* Keyboard report (ID=1) + Consumer report (ID=2, 16-bit usage). */
 static const uint8_t s_ble_report_map[] = {
@@ -213,6 +215,12 @@ static void ble_prepare_device_name(const char *configured_name, char *out, size
     }
 }
 
+static void ble_set_init_diag(const char *step, esp_err_t err)
+{
+    s_last_init_step = step;
+    s_last_init_error = err;
+}
+
 static void ble_start_adv_if_possible(void)
 {
     bool do_start = false;
@@ -353,6 +361,8 @@ static esp_err_t ble_setup_security(uint32_t passkey)
 
 esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
 {
+    ble_set_init_diag("begin", ESP_OK);
+
     if (passkey > 999999UL) {
         ESP_LOGW(TAG, "BLE passkey %" PRIu32 " out of range, fallback to 123456", passkey);
         passkey = 123456UL;
@@ -368,6 +378,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     s_ble.passkey = passkey;
     ble_prepare_device_name(device_name, s_ble.device_name, sizeof(s_ble.device_name));
 
+    ble_set_init_diag("bt_mem_release", ESP_OK);
     esp_err_t err = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
     if (err != ESP_OK &&
         err != ESP_ERR_INVALID_STATE &&
@@ -376,42 +387,68 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
         ESP_LOGW(TAG, "esp_bt_controller_mem_release(CLASSIC_BT) ignored: %s", esp_err_to_name(err));
     }
 
+    ble_set_init_diag("bt_controller_init", ESP_OK);
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     err = esp_bt_controller_init(&bt_cfg);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ble_set_init_diag("bt_controller_init", err);
         return err;
     }
 
+    ble_set_init_diag("bt_controller_enable", ESP_OK);
     err = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ble_set_init_diag("bt_controller_enable", err);
         return err;
     }
 
+    ble_set_init_diag("bluedroid_init", ESP_OK);
     err = esp_bluedroid_init();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ble_set_init_diag("bluedroid_init", err);
         return err;
     }
+    ble_set_init_diag("bluedroid_enable", ESP_OK);
     err = esp_bluedroid_enable();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ble_set_init_diag("bluedroid_enable", err);
         return err;
     }
 
-    ESP_RETURN_ON_ERROR(esp_ble_gap_register_callback(ble_gap_event_handler), TAG, "gap cb reg failed");
-    ESP_RETURN_ON_ERROR(esp_ble_gatts_register_callback(esp_hidd_gatts_event_handler), TAG, "gatts cb reg failed");
+    ble_set_init_diag("gap_cb_register", ESP_OK);
+    err = esp_ble_gap_register_callback(ble_gap_event_handler);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "gap cb reg failed (continue): %s", esp_err_to_name(err));
+    }
+    ble_set_init_diag("gatts_cb_register", ESP_OK);
+    err = esp_ble_gatts_register_callback(esp_hidd_gatts_event_handler);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "gatts cb reg failed (continue): %s", esp_err_to_name(err));
+    }
     (void)ble_setup_security(passkey);
 
-    ESP_RETURN_ON_ERROR(esp_ble_gap_set_device_name(s_ble.device_name), TAG, "set ble device name failed");
+    ble_set_init_diag("set_device_name", ESP_OK);
+    err = esp_ble_gap_set_device_name(s_ble.device_name);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "set ble device name failed (continue): %s", esp_err_to_name(err));
+    }
 
     s_ble.adv_cfg_done = 0;
     s_ble.adv_cfg_required_mask = ADV_CFG_FLAG_RAW;
     s_ble.adv_ready = false;
-    ESP_RETURN_ON_ERROR(esp_ble_gap_config_adv_data(&s_adv_data), TAG, "config adv data failed");
+    ble_set_init_diag("config_adv_data", ESP_OK);
+    err = esp_ble_gap_config_adv_data(&s_adv_data);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "config adv data failed (continue): %s", esp_err_to_name(err));
+        s_ble.adv_cfg_done |= ADV_CFG_FLAG_RAW;
+    }
     esp_ble_adv_data_t scan_rsp_cfg = s_scan_rsp_data;
     if (strlen(s_ble.device_name) > BLE_SCAN_RSP_NAME_MAX_LEN) {
         scan_rsp_cfg.include_name = false;
         ESP_LOGW(TAG,
                  "BLE device name too long for scan response; name omitted from scan response");
     }
+    ble_set_init_diag("config_scan_rsp", ESP_OK);
     const esp_err_t scan_rsp_err = esp_ble_gap_config_adv_data(&scan_rsp_cfg);
     if (scan_rsp_err == ESP_OK) {
         s_ble.adv_cfg_required_mask |= ADV_CFG_FLAG_SCAN_RSP;
@@ -420,6 +457,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
         s_ble.adv_cfg_done |= ADV_CFG_FLAG_SCAN_RSP;
     }
 
+    ble_set_init_diag("hidd_dev_init", ESP_OK);
     esp_hid_device_config_t hid_cfg = {
         .vendor_id = 0x303A,
         .product_id = 0x4011,
@@ -430,9 +468,12 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
         .report_maps = s_ble_report_maps,
         .report_maps_len = (uint8_t)(sizeof(s_ble_report_maps) / sizeof(s_ble_report_maps[0])),
     };
-    ESP_RETURN_ON_ERROR(esp_hidd_dev_init(&hid_cfg, ESP_HID_TRANSPORT_BLE, ble_hidd_event_callback, &s_ble.hid_dev),
-                        TAG,
-                        "esp_hidd_dev_init failed");
+    err = esp_hidd_dev_init(&hid_cfg, ESP_HID_TRANSPORT_BLE, ble_hidd_event_callback, &s_ble.hid_dev);
+    if (err != ESP_OK) {
+        ble_set_init_diag("hidd_dev_init", err);
+        ESP_LOGE(TAG, "esp_hidd_dev_init failed: %s", esp_err_to_name(err));
+        return err;
+    }
 
     ble_lock();
     s_ble.initialized = true;
@@ -440,6 +481,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     ble_refresh_bonded_locked();
     ble_unlock();
 
+    ble_set_init_diag("ready", ESP_OK);
     ESP_LOGI(TAG, "ready name=%s passkey=%06" PRIu32, s_ble.device_name, passkey);
     return ESP_OK;
 }
@@ -592,4 +634,14 @@ void hid_ble_backend_get_status(hid_ble_backend_status_t *out_status)
         }
     }
     ble_unlock();
+}
+
+const char *hid_ble_backend_last_init_step(void)
+{
+    return s_last_init_step;
+}
+
+esp_err_t hid_ble_backend_last_init_error(void)
+{
+    return s_last_init_error;
 }

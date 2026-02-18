@@ -30,6 +30,7 @@ typedef struct {
     bool ble_bonded;
     bool ble_init_failed;
     esp_err_t ble_init_error;
+    char ble_init_step[32];
     bool ble_pairing_window_active;
     uint32_t ble_pairing_remaining_ms;
     uint32_t ble_passkey;

@@ -95,6 +95,9 @@
   - EC11 tap x`keyboard.mode.switch_tap_count`
   - or `POST /api/v1/system/keyboard_mode`.
 - Verify build has BLE enabled in `sdkconfig.defaults` (`CONFIG_BT_ENABLED`, `CONFIG_BT_BLE_ENABLED`).
+- Check heartbeat diagnostics:
+  - `ble_err=<...>` and `ble_step=<...>` in `MACROPAD: alive ...`
+  - `ble_step` shows the last BLE init phase (for example `set_device_name`, `config_adv_data`, `hidd_dev_init`).
 
 ## 13) BLE Pairing Fails
 - Verify `MACROPAD_BLE_PASSKEY` in menuconfig matches host prompt.

@@ -704,7 +704,7 @@ static void input_task(void *arg)
             last_heartbeat = now;
             hid_transport_status_t hid_status = {0};
             (void)hid_transport_get_status(&hid_status);
-            APP_LOGI("alive mode=%s mounted=%d link_ready=%d ble_init=%d ble_conn=%d ble_adv=%d ble_bond=%d ble_err=%s k1=%d enc_btn=%d",
+            APP_LOGI("alive mode=%s mounted=%d link_ready=%d ble_init=%d ble_conn=%d ble_adv=%d ble_bond=%d ble_err=%s ble_step=%s k1=%d enc_btn=%d",
                      hid_status.mode == HID_MODE_USB ? "usb" : "ble",
                      hid_status.usb_mounted,
                      hid_transport_is_link_ready(),
@@ -713,6 +713,7 @@ static void input_task(void *arg)
                      hid_status.ble_advertising,
                      hid_status.ble_bonded,
                      hid_status.ble_init_failed ? esp_err_to_name(hid_status.ble_init_error) : "OK",
+                     hid_status.ble_init_step[0] ? hid_status.ble_init_step : "-",
                      gpio_get_level(scan_key_cfg(0)->gpio),
                      gpio_get_level(EC11_GPIO_BUTTON));
         }
