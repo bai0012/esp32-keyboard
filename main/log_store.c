@@ -46,12 +46,10 @@ static void trim_log_message(char *line)
     if (line == NULL) {
         return;
     }
-
-    for (size_t i = 0; line[i] != '\0'; ++i) {
-        if (line[i] == '\r' || line[i] == '\n') {
-            line[i] = '\0';
-            break;
-        }
+    size_t len = strlen(line);
+    while (len > 0U && (line[len - 1U] == '\r' || line[len - 1U] == '\n')) {
+        line[len - 1U] = '\0';
+        len--;
     }
 }
 
@@ -121,18 +119,35 @@ static int log_store_vprintf(const char *fmt, va_list args)
         return 0;
     }
 
+    bool has_monitor_prefix = false;
+    char monitor_prefix[32] = {0};
     const char *payload = formatted;
+
     if (formatted[0] != '\0' && formatted[1] == ' ' && formatted[2] == '(') {
         const char *end_ts = strstr(formatted, ") ");
-        if (end_ts != NULL && end_ts[2] != '\0') {
-            payload = end_ts + 2;
+        if (end_ts != NULL) {
+            const size_t prefix_len = (size_t)(end_ts - formatted + 2U);
+            if (prefix_len < sizeof(monitor_prefix)) {
+                memcpy(monitor_prefix, formatted, prefix_len);
+                monitor_prefix[prefix_len] = '\0';
+                has_monitor_prefix = true;
+                if (end_ts[2] != '\0') {
+                    payload = end_ts + 2;
+                } else {
+                    payload = "";
+                }
+            }
         }
     }
 
-    char prefix[32] = {0};
-    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 48U] = {0};
-    build_prefix(prefix, sizeof(prefix));
-    (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", prefix, payload);
+    char time_prefix[32] = {0};
+    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 80U] = {0};
+    build_prefix(time_prefix, sizeof(time_prefix));
+    if (has_monitor_prefix) {
+        (void)snprintf(with_prefix, sizeof(with_prefix), "%s [%s] %s", monitor_prefix, time_prefix, payload);
+    } else {
+        (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, payload);
+    }
 
     push_log_line(with_prefix);
     return log_store_prev_output("%s\n", with_prefix);

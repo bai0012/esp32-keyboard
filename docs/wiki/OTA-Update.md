@@ -24,6 +24,7 @@ Key responsibilities:
 3. On success, device reboots into new image.
 4. New image starts in `PENDING_VERIFY` state (rollback enabled).
 5. `ota_manager` runs self-check for `ota.self_check_duration_ms`.
+   - If a check fails, firmware retries self-check several times with a short interval before deciding rollback.
 6. OLED shows verification prompt.
 7. User presses EC11 N times (`ota.confirm_tap_count`, default `3`) to confirm.
 8. If confirmed, rollback is canceled and firmware is finalized.

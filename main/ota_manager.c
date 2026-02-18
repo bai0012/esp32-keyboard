@@ -28,6 +28,8 @@
 #define OTA_PROGRESS_BAR_WIDTH 14U
 #define OTA_CONFIRM_BANNER_MS 1500U
 #define OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES 24576U
+#define OTA_SELF_CHECK_MAX_RETRIES 4U
+#define OTA_SELF_CHECK_RETRY_INTERVAL_MS 1500U
 
 typedef struct {
     bool initialized;
@@ -36,6 +38,8 @@ typedef struct {
     ota_manager_state_t state;
     bool pending_verify;
     TickType_t self_check_start_tick;
+    TickType_t self_check_due_tick;
+    uint8_t self_check_retry_count;
     TickType_t confirm_start_tick;
     TickType_t confirm_deadline_tick;
     TickType_t confirm_success_tick;
@@ -290,6 +294,8 @@ static void ota_worker_task(void *arg)
 static void ota_enter_wait_confirm(TickType_t now)
 {
     s_ota.state = OTA_MANAGER_STATE_WAITING_CONFIRM;
+    s_ota.self_check_due_tick = 0;
+    s_ota.self_check_retry_count = 0;
     s_ota.confirm_start_tick = now;
     s_ota.confirm_success_tick = 0;
     if (MACRO_OTA_CONFIRM_TIMEOUT_SEC > 0) {
@@ -378,6 +384,8 @@ esp_err_t ota_manager_init(void)
             s_ota.pending_verify = true;
             s_ota.state = OTA_MANAGER_STATE_SELF_CHECK_RUNNING;
             s_ota.self_check_start_tick = now;
+            s_ota.self_check_due_tick = now + pdMS_TO_TICKS((uint32_t)MACRO_OTA_SELF_CHECK_DURATION_MS);
+            s_ota.self_check_retry_count = 0;
             ota_set_error_locked(NULL);
             ESP_LOGW(TAG, "Running OTA image is pending verify; starting self-check");
         }
@@ -402,8 +410,7 @@ void ota_manager_poll(TickType_t now)
 
     ota_lock();
     if (s_ota.state == OTA_MANAGER_STATE_SELF_CHECK_RUNNING) {
-        const TickType_t elapsed = now - s_ota.self_check_start_tick;
-        if (elapsed >= pdMS_TO_TICKS((uint32_t)MACRO_OTA_SELF_CHECK_DURATION_MS)) {
+        if (s_ota.self_check_due_tick == 0 || now >= s_ota.self_check_due_tick) {
             uint32_t free_heap = 0;
             if (ota_run_self_check(&free_heap)) {
                 s_ota.self_check_free_heap_bytes = free_heap;
@@ -412,15 +419,25 @@ void ota_manager_poll(TickType_t now)
                          "Self-check complete; press EC11 %u times to confirm OTA",
                          (unsigned)MACRO_OTA_CONFIRM_TAP_COUNT);
             } else {
-                s_ota.state = OTA_MANAGER_STATE_ROLLBACK_REBOOTING;
-                ota_set_error_locked("self-check failed");
-                ota_unlock();
-                ESP_LOGE(TAG, "Self-check failed; rolling back");
-                if (esp_ota_mark_app_invalid_rollback_and_reboot() != ESP_OK) {
-                    ESP_LOGE(TAG, "Rollback API failed; forcing reboot");
-                    esp_restart();
+                if (s_ota.self_check_retry_count < OTA_SELF_CHECK_MAX_RETRIES) {
+                    s_ota.self_check_retry_count++;
+                    s_ota.self_check_due_tick = now + pdMS_TO_TICKS(OTA_SELF_CHECK_RETRY_INTERVAL_MS);
+                    ESP_LOGW(TAG,
+                             "Self-check retry %u/%u scheduled in %u ms",
+                             (unsigned)s_ota.self_check_retry_count,
+                             (unsigned)OTA_SELF_CHECK_MAX_RETRIES,
+                             (unsigned)OTA_SELF_CHECK_RETRY_INTERVAL_MS);
+                } else {
+                    s_ota.state = OTA_MANAGER_STATE_ROLLBACK_REBOOTING;
+                    ota_set_error_locked("self-check failed");
+                    ota_unlock();
+                    ESP_LOGE(TAG, "Self-check failed after retries; rolling back");
+                    if (esp_ota_mark_app_invalid_rollback_and_reboot() != ESP_OK) {
+                        ESP_LOGE(TAG, "Rollback API failed; forcing reboot");
+                        esp_restart();
+                    }
+                    return;
                 }
-                return;
             }
         }
     } else if (s_ota.state == OTA_MANAGER_STATE_WAITING_CONFIRM &&
@@ -495,6 +512,8 @@ esp_err_t ota_manager_start_update(const char *url)
     s_ota.confirm_start_tick = 0;
     s_ota.confirm_deadline_tick = 0;
     s_ota.confirm_success_tick = 0;
+    s_ota.self_check_due_tick = 0;
+    s_ota.self_check_retry_count = 0;
     ota_reset_download_progress_locked();
     ota_set_error_locked(NULL);
 

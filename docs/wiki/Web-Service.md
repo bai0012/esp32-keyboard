@@ -53,8 +53,8 @@ Base prefix: `/api/v1`
     - `time_synced`: `false` before SNTP time is valid, `true` after sync
     - `entries[]`: `{id,line}` records in chronological order
   - Timestamp behavior in each line:
-    - before sync: boot-relative (`+[ms]`)
-    - after sync: real local time (`YYYY-MM-DD HH:MM:SS`)
+    - before sync: monitor-style boot-relative line (`I/W/E (ms) TAG: ...`)
+    - after sync: monitor-style prefix plus appended real time (`I/W/E (ms) [YYYY-MM-DD HH:MM:SS] TAG: ...`)
 - `GET /api/v1/system/ota`
   - Returns OTA manager state/status snapshot.
 

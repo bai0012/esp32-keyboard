@@ -30,6 +30,7 @@ Hardware reference is documented in `hardware_info.md`.
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
   - inactivity auto-off timeout for all RGB LEDs
 - Runtime `MACROPAD` logs are gated until TinyUSB CDC is connected (helps with COM re-enumeration after flashing)
+- Log output keeps monitor-compatible `I/W/E (ms) TAG:` prefix and appends wall-clock time after SNTP sync.
 - HID transport abstraction (`hid_transport`) decoupling app logic from USB/BLE backend
 - Keyboard mode persistence in NVS (`USB`/`BLE`) with controlled reboot apply
 - BLE pairing window and single-bond workflow (passkey + bond replacement policy)
