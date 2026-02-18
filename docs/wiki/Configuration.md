@@ -41,6 +41,14 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `encoder.layers[].button_single_usage` | `HID_USAGE_CONSUMER_PLAY_PAUSE` | Layer-specific single-tap action. |
 | `encoder.layers[].cw_usage` | `HID_USAGE_CONSUMER_VOLUME_INCREMENT` | Clockwise rotation action. |
 | `encoder.layers[].ccw_usage` | `HID_USAGE_CONSUMER_VOLUME_DECREMENT` | Counter-clockwise rotation action. |
+| `keyboard.mode.default` | `usb` | Keyboard transport default mode (`usb` or `ble`). |
+| `keyboard.mode.switch_tap_count` | `5` | EC11 tap count used to request mode toggle. |
+| `keyboard.mode.persist` | `true` | Persist selected mode in NVS across reboots. |
+| `keyboard.mode.switch_reboot_delay_ms` | `900` | Delay before reboot after mode-switch request. |
+| `bluetooth.enabled` | `true` | Enables BLE keyboard feature path. |
+| `bluetooth.pairing_window_sec` | `120` | Default BLE pairing window timeout in seconds. |
+| `bluetooth.disconnect_on_mode_exit` | `true` | Policy flag for BLE disconnect behavior during mode switch out of BLE. |
+| `bluetooth.clear_bond_on_new_pairing` | `true` | Clears existing bond before starting a new pairing flow. |
 | `touch.layers[].left_usage` | `HID_USAGE_CONSUMER_SCAN_PREVIOUS_TRACK` | Action fired by `R->L` slide. |
 | `touch.layers[].right_usage` | `HID_USAGE_CONSUMER_SCAN_NEXT_TRACK` | Action fired by `L->R` slide. |
 | `touch.layers[].left_hold_repeat` | `false` | Enable hold-repeat for `R->L` direction. |
@@ -169,6 +177,9 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_WEB_BASIC_AUTH_PASSWORD`
 - `MACROPAD_OTA_DEFAULT_URL`
 - `MACROPAD_OTA_HTTP_TIMEOUT_MS`
+- `MACROPAD_BLE_DEVICE_NAME`
+- `MACROPAD_BLE_PASSKEY`
+- `MACROPAD_BLE_TX_POWER`
 
 If SSID is empty:
 - firmware first tries previously stored Wi-Fi credentials

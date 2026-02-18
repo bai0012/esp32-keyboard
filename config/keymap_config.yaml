@@ -103,6 +103,30 @@ encoder:
     - { button_single_usage: HID_USAGE_CONSUMER_SCAN_NEXT_TRACK,  cw_usage: HID_USAGE_CONSUMER_VOLUME_INCREMENT, ccw_usage: HID_USAGE_CONSUMER_VOLUME_DECREMENT }
     - { button_single_usage: HID_USAGE_CONSUMER_PLAY_PAUSE,       cw_usage: HID_USAGE_CONSUMER_SCAN_NEXT_TRACK,  ccw_usage: HID_USAGE_CONSUMER_SCAN_PREVIOUS_TRACK }
 
+# Keyboard transport mode policy (USB HID vs BLE HID).
+keyboard:
+  mode:
+    # Default mode when there is no persisted selection.
+    # Allowed: usb | ble
+    default: usb
+    # EC11 tap count used to request a keyboard transport switch.
+    switch_tap_count: 5
+    # Persist selected mode in NVS.
+    persist: true
+    # Delay before reboot when applying mode switch.
+    switch_reboot_delay_ms: 900
+
+# BLE keyboard behavior.
+bluetooth:
+  # Master BLE keyboard enable (USB mode still works when false).
+  enabled: true
+  # Pairing window duration in seconds when opened.
+  pairing_window_sec: 120
+  # Disconnect current BLE link when leaving BLE mode.
+  disconnect_on_mode_exit: true
+  # Clear previous bond before opening pairing window.
+  clear_bond_on_new_pairing: true
+
 # Touch slider behavior.
 touch:
   # Per-layer touch mappings.
@@ -325,7 +349,7 @@ ota:
   # Master OTA feature switch.
   enabled: true
   # Allow plain HTTP firmware URLs (insecure; LAN/testing only).
-  allow_http: false
+  allow_http: true
   # Skip HTTPS server certificate verification (insecure).
   # Requires insecure TLS/HTTPS-OTA build options enabled in sdkconfig.
   skip_cert_verify: false

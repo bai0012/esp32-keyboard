@@ -19,14 +19,13 @@
 #include "nvs_flash.h"
 
 #include "led_strip.h"
-#include "tusb.h"
 
 #include "keymap_config.h"
 #include "sdkconfig.h"
 
 #include "buzzer.h"
+#include "hid_transport.h"
 #include "home_assistant.h"
-#include "macropad_hid.h"
 #include "oled.h"
 #include "oled_animation_assets.h"
 #include "ota_manager.h"
@@ -89,7 +88,7 @@ static bool debounce_update(debounce_state_t *state,
 
 static inline bool cdc_log_ready(void)
 {
-    if (tud_cdc_connected()) {
+    if (hid_transport_cdc_connected()) {
         return true;
     }
 
@@ -170,7 +169,7 @@ static void send_consumer_report_with_activity(uint16_t usage)
     if (usage != 0) {
         mark_user_activity(xTaskGetTickCount());
     }
-    macropad_send_consumer_report(usage);
+    hid_transport_send_consumer_report(usage);
 }
 
 static void notify_touch_swipe(uint8_t layer_index, bool left_to_right, uint16_t usage)
@@ -206,7 +205,7 @@ static void set_active_layer(uint8_t layer)
     buzzer_play_layer_switch(s_active_layer);
     home_assistant_notify_layer_switch(s_active_layer);
     web_service_set_active_layer(s_active_layer);
-    macropad_send_keyboard_report(s_key_pressed, s_active_layer);
+    hid_transport_send_keyboard_report(s_key_pressed, s_active_layer);
 }
 
 static uint8_t apply_brightness(uint8_t value, uint8_t brightness)
@@ -236,8 +235,12 @@ static esp_err_t update_key_leds(void)
     const bool leds_off_by_idle =
         (led_off_timeout_ticks > 0) &&
         ((now - s_last_user_activity_tick) >= led_off_timeout_ticks);
-    (void)debounce_update(&s_usb_mounted_db, tud_mounted(), now, status_debounce_ticks);
-    (void)debounce_update(&s_usb_hid_ready_db, tud_hid_ready(), now, status_debounce_ticks);
+    hid_transport_status_t hid_status = {0};
+    (void)hid_transport_get_status(&hid_status);
+    const bool mounted_state = hid_status.usb_mounted;
+    const bool link_ready_state = (hid_status.mode == HID_MODE_USB) ? hid_status.usb_hid_ready : hid_status.ble_connected;
+    (void)debounce_update(&s_usb_mounted_db, mounted_state, now, status_debounce_ticks);
+    (void)debounce_update(&s_usb_hid_ready_db, link_ready_state, now, status_debounce_ticks);
 
     const macro_rgb_t *layer_color = &g_layer_backlight_color[s_active_layer];
     const uint8_t layer_a_r = layer_color->r;
@@ -446,8 +449,10 @@ static esp_err_t init_led_strip(void)
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_led_strip));
 
     const TickType_t now = xTaskGetTickCount();
-    const bool mounted = tud_mounted();
-    const bool hid_ready = tud_hid_ready();
+    hid_transport_status_t hid_status = {0};
+    (void)hid_transport_get_status(&hid_status);
+    const bool mounted = hid_status.usb_mounted;
+    const bool hid_ready = (hid_status.mode == HID_MODE_USB) ? hid_status.usb_hid_ready : hid_status.ble_connected;
     s_usb_mounted_db.stable_level = mounted;
     s_usb_mounted_db.last_raw = mounted;
     s_usb_mounted_db.last_transition_tick = now;
@@ -480,6 +485,27 @@ static esp_err_t web_control_send_consumer(uint16_t usage)
 {
     send_consumer_report_with_activity(usage);
     return ESP_OK;
+}
+
+static esp_err_t web_control_set_keyboard_mode(hid_mode_t mode)
+{
+    mark_user_activity(xTaskGetTickCount());
+    return hid_transport_request_mode_switch(mode);
+}
+
+static esp_err_t web_control_start_ble_pairing(uint32_t timeout_sec)
+{
+    const uint32_t timeout_ms = (timeout_sec > 0U)
+                                    ? (timeout_sec * 1000U)
+                                    : ((uint32_t)MACRO_BLUETOOTH_PAIRING_WINDOW_SEC * 1000U);
+    mark_user_activity(xTaskGetTickCount());
+    return hid_transport_start_pairing_window(timeout_ms);
+}
+
+static esp_err_t web_control_clear_ble_bond(void)
+{
+    mark_user_activity(xTaskGetTickCount());
+    return hid_transport_clear_bond();
 }
 
 static void input_task(void *arg)
@@ -532,7 +558,7 @@ static void input_task(void *arg)
         }
 
         if (keyboard_state_changed) {
-            macropad_send_keyboard_report(s_key_pressed, s_active_layer);
+            hid_transport_send_keyboard_report(s_key_pressed, s_active_layer);
         }
 
         touch_slider_update(now,
@@ -563,6 +589,20 @@ static void input_task(void *arg)
             if (ota_manager_handle_encoder_taps(taps)) {
                 s_encoder_single_pending = false;
                 mark_user_activity(now);
+            } else if (taps == (uint8_t)MACRO_KEYBOARD_MODE_SWITCH_TAP_COUNT) {
+                s_encoder_single_pending = false;
+                const hid_mode_t current_mode = hid_transport_get_mode();
+                const hid_mode_t target_mode = (current_mode == HID_MODE_USB) ? HID_MODE_BLE : HID_MODE_USB;
+                const esp_err_t mode_err = hid_transport_request_mode_switch(target_mode);
+                if (mode_err == ESP_OK) {
+                    mark_user_activity(now);
+                    buzzer_play_keypress();
+                    APP_LOGI("Keyboard mode switch requested: %s -> %s",
+                             current_mode == HID_MODE_USB ? "USB" : "BLE",
+                             target_mode == HID_MODE_USB ? "USB" : "BLE");
+                } else {
+                    APP_LOGI("Keyboard mode switch request failed: %s", esp_err_to_name(mode_err));
+                }
             } else if (MACRO_HA_CONTROL_ENABLED &&
                 taps == (uint8_t)MACRO_HA_CONTROL_TAP_COUNT) {
                 s_encoder_single_pending = false;
@@ -639,15 +679,20 @@ static void input_task(void *arg)
         }
 
         buzzer_update(now);
+        hid_transport_poll(now);
         ota_manager_poll(now);
         wifi_portal_poll();
         web_service_poll();
 
         if ((now - last_heartbeat) >= pdMS_TO_TICKS(2000)) {
             last_heartbeat = now;
-            APP_LOGI("alive mounted=%d hid_ready=%d k1=%d enc_btn=%d",
-                     tud_mounted(),
-                     tud_hid_ready(),
+            hid_transport_status_t hid_status = {0};
+            (void)hid_transport_get_status(&hid_status);
+            APP_LOGI("alive mode=%s mounted=%d link_ready=%d ble_conn=%d k1=%d enc_btn=%d",
+                     hid_status.mode == HID_MODE_USB ? "usb" : "ble",
+                     hid_status.usb_mounted,
+                     hid_transport_is_link_ready(),
+                     hid_status.ble_connected,
                      gpio_get_level(scan_key_cfg(0)->gpio),
                      gpio_get_level(EC11_GPIO_BUTTON));
         }
@@ -744,6 +789,10 @@ static void display_task(void *arg)
             char portal_l1[48] = {0};
             char portal_l2[48] = {0};
             char portal_l3[48] = {0};
+            char ble_l0[48] = {0};
+            char ble_l1[48] = {0};
+            char ble_l2[48] = {0};
+            char ble_l3[48] = {0};
             char ha_line[96] = {0};
             uint32_t ha_age_ms = 0;
             const bool ota_overlay = ota_manager_get_oled_lines(ota_l0,
@@ -762,6 +811,14 @@ static void display_task(void *arg)
                                                                   sizeof(portal_l2),
                                                                   portal_l3,
                                                                   sizeof(portal_l3));
+            const bool ble_overlay = hid_transport_get_oled_lines(ble_l0,
+                                                                  sizeof(ble_l0),
+                                                                  ble_l1,
+                                                                  sizeof(ble_l1),
+                                                                  ble_l2,
+                                                                  sizeof(ble_l2),
+                                                                  ble_l3,
+                                                                  sizeof(ble_l3));
             const bool has_ha_text =
                 home_assistant_get_display_text(ha_line, sizeof(ha_line), &ha_age_ms) &&
                 (ha_age_ms <= HA_DISPLAY_STALE_MS);
@@ -770,6 +827,8 @@ static void display_task(void *arg)
                 err = oled_render_text_lines(ota_l0, ota_l1, ota_l2, ota_l3, shift_x, shift_y);
             } else if (portal_active) {
                 err = oled_render_text_lines(portal_l0, portal_l1, portal_l2, portal_l3, shift_x, shift_y);
+            } else if (ble_overlay) {
+                err = oled_render_text_lines(ble_l0, ble_l1, ble_l2, ble_l3, shift_x, shift_y);
             } else {
                 err = has_ha_text
                           ? oled_render_clock_with_status(&timeinfo, ha_line, shift_x, shift_y)
@@ -801,7 +860,7 @@ void app_main(void)
     s_last_user_activity_tick = xTaskGetTickCount();
 
     ESP_ERROR_CHECK(init_keys());
-    ESP_ERROR_CHECK(macropad_usb_init());
+    ESP_ERROR_CHECK(hid_transport_init());
     ESP_ERROR_CHECK(touch_slider_init());
     ESP_ERROR_CHECK(init_encoder());
     ESP_ERROR_CHECK(init_led_strip());
@@ -819,6 +878,9 @@ void app_main(void)
             .set_layer = web_control_set_layer,
             .set_buzzer = web_control_set_buzzer,
             .send_consumer = web_control_send_consumer,
+            .set_keyboard_mode = web_control_set_keyboard_mode,
+            .start_ble_pairing = web_control_start_ble_pairing,
+            .clear_ble_bond = web_control_clear_ble_bond,
         };
         ESP_ERROR_CHECK(web_service_register_control(&control_if));
     }

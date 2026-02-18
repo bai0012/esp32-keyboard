@@ -58,6 +58,20 @@ def render_header(cfg: dict[str, Any]) -> str:
 
     led = cfg["led"]
     encoder = cfg["encoder"]
+    keyboard = cfg.get("keyboard", {
+        "mode": {
+            "default": "usb",
+            "switch_tap_count": 5,
+            "persist": True,
+            "switch_reboot_delay_ms": 900,
+        },
+    })
+    bluetooth = cfg.get("bluetooth", {
+        "enabled": False,
+        "pairing_window_sec": 120,
+        "disconnect_on_mode_exit": True,
+        "clear_bond_on_new_pairing": True,
+    })
     touch = cfg["touch"]
     oled = cfg["oled"]
     wifi_portal = cfg.get("wifi_portal", {
@@ -241,6 +255,20 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_ENCODER_BUTTON_ACTIVE_LOW {c_bool(encoder['button_active_low'])}")
     out.append(f"#define MACRO_ENCODER_TAP_WINDOW_MS {as_int(encoder['tap_window_ms'], 'encoder.tap_window_ms')}")
     out.append(f"#define MACRO_ENCODER_SINGLE_TAP_DELAY_MS {as_int(encoder['single_tap_delay_ms'], 'encoder.single_tap_delay_ms')}")
+    out.append("")
+    keyboard_mode = keyboard.get("mode", {})
+    keyboard_default = str(keyboard_mode.get("default", "usb")).strip().lower()
+    if keyboard_default not in ("usb", "ble"):
+        raise ValueError("keyboard.mode.default must be 'usb' or 'ble'")
+    out.append(f"#define MACRO_KEYBOARD_DEFAULT_MODE_BLE {c_bool(keyboard_default == 'ble')}")
+    out.append(f"#define MACRO_KEYBOARD_MODE_SWITCH_TAP_COUNT {as_int(keyboard_mode.get('switch_tap_count', 5), 'keyboard.mode.switch_tap_count')}")
+    out.append(f"#define MACRO_KEYBOARD_MODE_PERSIST {c_bool(keyboard_mode.get('persist', True))}")
+    out.append(f"#define MACRO_KEYBOARD_MODE_SWITCH_REBOOT_DELAY_MS {as_int(keyboard_mode.get('switch_reboot_delay_ms', 900), 'keyboard.mode.switch_reboot_delay_ms')}")
+    out.append("")
+    out.append(f"#define MACRO_BLUETOOTH_ENABLED {c_bool(bluetooth.get('enabled', False))}")
+    out.append(f"#define MACRO_BLUETOOTH_PAIRING_WINDOW_SEC {as_int(bluetooth.get('pairing_window_sec', 120), 'bluetooth.pairing_window_sec')}")
+    out.append(f"#define MACRO_BLUETOOTH_DISCONNECT_ON_MODE_EXIT {c_bool(bluetooth.get('disconnect_on_mode_exit', True))}")
+    out.append(f"#define MACRO_BLUETOOTH_CLEAR_BOND_ON_NEW_PAIRING {c_bool(bluetooth.get('clear_bond_on_new_pairing', True))}")
     out.append("")
     out.append(f"#define MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT {as_int(oled['default_brightness_percent'], 'oled.default_brightness_percent')}")
     out.append(f"#define MACRO_OLED_DIM_BRIGHTNESS_PERCENT {as_int(oled['dim_brightness_percent'], 'oled.dim_brightness_percent')}")

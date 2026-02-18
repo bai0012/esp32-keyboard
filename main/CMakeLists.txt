@@ -2,15 +2,20 @@ idf_component_register(
     SRCS
         "main.c"
         "buzzer.c"
+        "hid_ble_backend.c"
+        "hid_transport.c"
+        "hid_usb_backend.c"
         "home_assistant.c"
+        "keyboard_mode_store.c"
         "macropad_hid.c"
         "touch_slider.c"
         "web_service.c"
         "oled.c"
         "ota_manager.c"
         "wifi_portal.c"
-    INCLUDE_DIRS "."
-    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client esp_http_server lwip mbedtls app_update esp_https_ota
+    INCLUDE_DIRS
+        "."
+    REQUIRES driver esp_driver_gpio esp_driver_i2c esp_driver_ledc esp_driver_pcnt esp_driver_touch_sens nvs_flash esp_wifi esp_event esp_netif led_strip esp_http_client esp_http_server lwip mbedtls app_update esp_https_ota bt esp_hid
 )
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

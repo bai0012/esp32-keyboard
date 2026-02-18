@@ -15,8 +15,22 @@
   - OLED protection policy control (shift/dim/off/invert timing)
   - SNTP start hook (on IP-acquired event)
   - Home Assistant module event hooks
+- `main/hid_transport.c`
+  - Runtime HID mode selection (`USB` / `BLE`)
+  - Mode-switch persistence + reboot apply
+  - Unified keyboard/consumer send API used by app logic
+  - BLE status export for OLED/web
+- `main/hid_usb_backend.c`
+  - USB backend adapter to TinyUSB HID (`main/macropad_hid.c`)
+- `main/hid_ble_backend.c`
+  - BLE HID backend (ESP HID over BLE)
+  - Advertising/pairing window control
+  - Passkey security + single-bond handling
+- `main/keyboard_mode_store.c`
+  - NVS read/write for persisted keyboard mode
 - `main/macropad_hid.c`
   - TinyUSB descriptor and callback setup
+  - HID enable/disable at descriptor level (`CDC+HID` vs `CDC-only`)
   - Keyboard report send
   - Consumer report send
 - `main/touch_slider.c`
@@ -66,7 +80,7 @@ OLED subsystem deep-dive:
 ## 3) Data/Control Flow
 1. Input signals are sampled in `input_task`.
 2. Key/encoder/touch events are mapped from `config/keymap_config.yaml` (compiled as `main/keymap_config.h`).
-3. HID reports are sent by `macropad_hid` APIs.
+3. HID reports are sent by `hid_transport` to selected backend (`USB` or `BLE`).
 4. LEDs/OLED are updated for runtime status feedback.
 5. Optional Home Assistant events are queued and published asynchronously.
 6. Optional Home Assistant state is polled and cached for display task rendering.
@@ -79,6 +93,10 @@ OLED subsystem deep-dive:
 - `main/CMakeLists.txt` registers:
   - `main.c`
   - `buzzer.c`
+  - `hid_transport.c`
+  - `hid_usb_backend.c`
+  - `hid_ble_backend.c`
+  - `keyboard_mode_store.c`
   - `macropad_hid.c`
   - `touch_slider.c`
   - `oled.c`

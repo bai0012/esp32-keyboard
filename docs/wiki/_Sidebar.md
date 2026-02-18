@@ -8,6 +8,7 @@
 - [Buzzer Feedback](Buzzer-Feedback)
 - [Home Assistant Integration](Home-Assistant-Integration)
 - [Web Service](Web-Service)
+- [Bluetooth Keyboard](Bluetooth-Keyboard)
 - [OTA Update](OTA-Update)
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [API Reference](API-Reference)

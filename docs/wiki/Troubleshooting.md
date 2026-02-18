@@ -85,3 +85,28 @@
   - `home_assistant.control.service_name`
   - `home_assistant.control.entity_id`
 - Test equivalent call in Home Assistant Developer Tools -> Services.
+
+## 12) BLE Keyboard Not Advertising
+- Confirm `bluetooth.enabled: true` in `config/keymap_config.yaml`.
+- Confirm current keyboard mode is `BLE`:
+  - OLED BLE overlay
+  - or `GET /api/v1/system/keyboard_mode`
+- If mode is `USB`, switch with:
+  - EC11 tap x`keyboard.mode.switch_tap_count`
+  - or `POST /api/v1/system/keyboard_mode`.
+- Verify build has BLE enabled in `sdkconfig.defaults` (`CONFIG_BT_ENABLED`, `CONFIG_BT_BLE_ENABLED`).
+
+## 13) BLE Pairing Fails
+- Verify `MACROPAD_BLE_PASSKEY` in menuconfig matches host prompt.
+- Open pairing window explicitly:
+  - `POST /api/v1/system/ble/pair` with optional timeout.
+- If pairing is stuck with stale host data:
+  - clear bond via `POST /api/v1/system/ble/clear_bond`
+  - remove device from host Bluetooth settings and pair again.
+- Single-bond policy is active; pairing a new host replaces previous bond.
+
+## 14) USB Keyboard Missing After Reboot
+- Expected in BLE mode: USB HID is disabled intentionally (CDC remains available).
+- Switch back to USB mode if host requires USB HID keyboard:
+  - EC11 tap x`keyboard.mode.switch_tap_count`
+  - or `POST /api/v1/system/keyboard_mode` with `{\"mode\":\"usb\"}`.

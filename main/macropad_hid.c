@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "esp_err.h"
 #include "esp_log.h"
 
 #include "tinyusb.h"
@@ -19,7 +20,7 @@
 
 #include "macropad_hid.h"
 
-#define TAG "MACROPAD"
+#define TAG "MACROPAD_USB"
 
 #define KEY_COUNT MACRO_KEY_COUNT
 #define HID_REPORT_RETRY_MS 50
@@ -33,17 +34,23 @@ enum {
 #define EPNUM_CDC_OUT   0x02
 #define EPNUM_CDC_IN    0x82
 #define EPNUM_HID_IN    0x83
-#define TUSB_DESC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN)
+#define TUSB_DESC_TOTAL_LEN_CDC_HID (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN)
+#define TUSB_DESC_TOTAL_LEN_CDC_ONLY (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN)
 
 static const uint8_t s_hid_report_descriptor[] = {
     TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(REPORT_ID_KEYBOARD)),
     TUD_HID_REPORT_DESC_CONSUMER(HID_REPORT_ID(REPORT_ID_CONSUMER)),
 };
 
-static const uint8_t s_configuration_descriptor[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 3, 0, TUSB_DESC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
+static const uint8_t s_configuration_descriptor_cdc_hid[] = {
+    TUD_CONFIG_DESCRIPTOR(1, 3, 0, TUSB_DESC_TOTAL_LEN_CDC_HID, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_CDC_DESCRIPTOR(0, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
     TUD_HID_DESCRIPTOR(2, 5, false, sizeof(s_hid_report_descriptor), EPNUM_HID_IN, 16, 5),
+};
+
+static const uint8_t s_configuration_descriptor_cdc_only[] = {
+    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUSB_DESC_TOTAL_LEN_CDC_ONLY, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
+    TUD_CDC_DESCRIPTOR(0, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
 };
 
 static const tusb_desc_device_t s_device_descriptor = {
@@ -71,6 +78,8 @@ static const char *s_string_descriptor[] = {
     "MacroPad CDC",
     "MacroPad HID",
 };
+
+static bool s_hid_enabled = true;
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
@@ -105,6 +114,11 @@ void tud_hid_set_report_cb(uint8_t instance,
     (void)bufsize;
 }
 
+static inline bool hid_enabled_and_ready(void)
+{
+    return s_hid_enabled && tud_mounted() && tud_hid_ready();
+}
+
 static bool hid_send_report_retry(uint8_t report_id,
                                   const void *report,
                                   uint16_t report_len,
@@ -112,7 +126,7 @@ static bool hid_send_report_retry(uint8_t report_id,
 {
     const TickType_t start = xTaskGetTickCount();
     while ((xTaskGetTickCount() - start) < timeout_ticks) {
-        if (tud_mounted() && tud_hid_ready() && tud_hid_report(report_id, report, report_len)) {
+        if (hid_enabled_and_ready() && tud_hid_report(report_id, report, report_len)) {
             return true;
         }
         vTaskDelay(pdMS_TO_TICKS(1));
@@ -125,17 +139,22 @@ static inline const macro_action_config_t *active_key_cfg(size_t idx, uint8_t ac
     return &g_macro_keymap_layers[active_layer][idx];
 }
 
-esp_err_t macropad_usb_init(void)
+esp_err_t macropad_usb_init_mode(bool enable_hid_keyboard)
 {
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
     tusb_cfg.descriptor.device = &s_device_descriptor;
-    tusb_cfg.descriptor.full_speed_config = s_configuration_descriptor;
+    tusb_cfg.descriptor.full_speed_config = enable_hid_keyboard
+        ? s_configuration_descriptor_cdc_hid
+        : s_configuration_descriptor_cdc_only;
     tusb_cfg.descriptor.string = s_string_descriptor;
     tusb_cfg.descriptor.string_count = sizeof(s_string_descriptor) / sizeof(s_string_descriptor[0]);
 #if (TUD_OPT_HIGH_SPEED)
-    tusb_cfg.descriptor.high_speed_config = s_configuration_descriptor;
+    tusb_cfg.descriptor.high_speed_config = enable_hid_keyboard
+        ? s_configuration_descriptor_cdc_hid
+        : s_configuration_descriptor_cdc_only;
 #endif
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+    s_hid_enabled = enable_hid_keyboard;
 
 #if CONFIG_TINYUSB_CDC_ENABLED
     tinyusb_config_cdcacm_t acm_cfg = {
@@ -145,8 +164,15 @@ esp_err_t macropad_usb_init(void)
     ESP_ERROR_CHECK(tinyusb_console_init(TINYUSB_CDC_ACM_0));
 #endif
 
-    ESP_LOGI(TAG, "TinyUSB started (CDC + HID), console redirected to CDC");
+    ESP_LOGI(TAG,
+             "TinyUSB started (CDC%s), console redirected to CDC",
+             s_hid_enabled ? " + HID" : " only");
     return ESP_OK;
+}
+
+esp_err_t macropad_usb_init(void)
+{
+    return macropad_usb_init_mode(true);
 }
 
 void macropad_send_consumer_report(uint16_t usage)
@@ -154,9 +180,13 @@ void macropad_send_consumer_report(uint16_t usage)
     if (usage == 0) {
         return;
     }
-    if (!tud_mounted() || !tud_hid_ready()) {
-        ESP_LOGW(TAG, "Skip consumer report 0x%X, HID not ready (mounted=%d ready=%d)",
-                 usage, tud_mounted(), tud_hid_ready());
+    if (!hid_enabled_and_ready()) {
+        ESP_LOGW(TAG,
+                 "Skip consumer report 0x%X, HID not ready/enabled (enabled=%d mounted=%d ready=%d)",
+                 usage,
+                 s_hid_enabled,
+                 tud_mounted(),
+                 tud_hid_ready());
         return;
     }
 
@@ -180,9 +210,12 @@ void macropad_send_keyboard_report(const bool *key_pressed, uint8_t active_layer
         return;
     }
 
-    if (!tud_mounted() || !tud_hid_ready()) {
-        ESP_LOGW(TAG, "Skip keyboard report, HID not ready (mounted=%d ready=%d)",
-                 tud_mounted(), tud_hid_ready());
+    if (!hid_enabled_and_ready()) {
+        ESP_LOGW(TAG,
+                 "Skip keyboard report, HID not ready/enabled (enabled=%d mounted=%d ready=%d)",
+                 s_hid_enabled,
+                 tud_mounted(),
+                 tud_hid_ready());
         return;
     }
 
@@ -200,7 +233,7 @@ void macropad_send_keyboard_report(const bool *key_pressed, uint8_t active_layer
     const TickType_t start = xTaskGetTickCount();
     bool sent = false;
     while ((xTaskGetTickCount() - start) < timeout_ticks) {
-        if (tud_mounted() && tud_hid_ready() && tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycodes)) {
+        if (hid_enabled_and_ready() && tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycodes)) {
             sent = true;
             break;
         }
@@ -209,4 +242,24 @@ void macropad_send_keyboard_report(const bool *key_pressed, uint8_t active_layer
     if (!sent) {
         ESP_LOGW(TAG, "Keyboard report timeout");
     }
+}
+
+bool macropad_usb_hid_enabled(void)
+{
+    return s_hid_enabled;
+}
+
+bool macropad_usb_mounted(void)
+{
+    return tud_mounted();
+}
+
+bool macropad_usb_hid_ready(void)
+{
+    return s_hid_enabled ? tud_hid_ready() : false;
+}
+
+bool macropad_usb_cdc_connected(void)
+{
+    return tud_cdc_connected();
 }

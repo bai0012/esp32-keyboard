@@ -1,18 +1,55 @@
 # API Reference
 
-## 1) HID Module (`main/macropad_hid.h`)
+## 1) HID Transport Module (`main/hid_transport.h`)
 
-### `esp_err_t macropad_usb_init(void);`
-- Initializes TinyUSB with custom keyboard + consumer descriptors.
-- Also initializes CDC console when enabled by config.
+### `esp_err_t hid_transport_init(void);`
+- Initializes runtime keyboard transport in selected mode (`USB` or `BLE`).
+- Applies persisted mode when enabled, otherwise falls back to YAML default mode.
 
-### `void macropad_send_consumer_report(uint16_t usage);`
-- Sends consumer press + release report sequence.
-- No-op when usage is `0` or HID is not ready.
+### `hid_mode_t hid_transport_get_mode(void);`
+- Returns active runtime keyboard mode.
 
-### `void macropad_send_keyboard_report(const bool *key_pressed, uint8_t active_layer);`
-- Builds keyboard keycode array from current key state/layer.
-- Sends one keyboard report.
+### `esp_err_t hid_transport_request_mode_switch(hid_mode_t target);`
+- Persists target mode and schedules controlled reboot apply.
+- Enforces `USB`/`BLE` mutual exclusion behavior.
+
+### `void hid_transport_send_keyboard_report(const bool *key_pressed, uint8_t active_layer);`
+- Sends keyboard report through current active backend.
+
+### `void hid_transport_send_consumer_report(uint16_t usage);`
+- Sends consumer usage through current active backend.
+
+### `bool hid_transport_is_link_ready(void);`
+- Returns active-mode link readiness:
+  - USB mode: TinyUSB HID ready
+  - BLE mode: BLE HID connected
+
+### `bool hid_transport_get_status(hid_transport_status_t *out_status);`
+- Returns detailed mode/link state for UI/API export.
+
+### `esp_err_t hid_transport_start_pairing_window(uint32_t timeout_ms);`
+- Starts BLE pairing window in BLE mode.
+
+### `esp_err_t hid_transport_clear_bond(void);`
+- Clears existing BLE bond(s) in BLE mode.
+
+## 1.1) USB Backend (`main/hid_usb_backend.h` / `main/macropad_hid.h`)
+
+### `esp_err_t macropad_usb_init_mode(bool enable_hid_keyboard);`
+- Starts TinyUSB as:
+  - `true`: CDC + HID keyboard/consumer
+  - `false`: CDC only (used in BLE mode)
+
+## 1.2) BLE Backend (`main/hid_ble_backend.h`)
+
+### `esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey);`
+- Initializes BLE HID stack, security, and advertising metadata.
+
+### `esp_err_t hid_ble_backend_start_pairing_window(uint32_t timeout_ms);`
+- Opens pairing window and enables advertising when applicable.
+
+### `esp_err_t hid_ble_backend_clear_bond(void);`
+- Removes stored BLE bond information.
 
 ## 2) Touch Module (`main/touch_slider.h`)
 
@@ -211,6 +248,9 @@ Behavior/tuning reference:
   - health + lifecycle status.
 - `GET /api/v1/state`
   - active layer, buzzer state, idle age, latest key/encoder/swipe telemetry, OTA status.
+  - keyboard mode and BLE transport status fields.
+- `GET /api/v1/system/keyboard_mode`
+  - Returns current mode and BLE pairing/link status.
 - `GET /api/v1/system/ota`
   - OTA manager state/status snapshot.
   - Includes download progress fields:
@@ -222,6 +262,9 @@ Behavior/tuning reference:
 - `POST /api/v1/control/buzzer` with `{"enabled":true}`
 - `POST /api/v1/control/consumer` with `{"usage":233}`
 - `POST /api/v1/system/ota` with optional `{"url":"https://host/fw.bin"}` or `{"url":"http://host/fw.bin"}`
+- `POST /api/v1/system/keyboard_mode` with `{"mode":"usb"|"ble"}`
+- `POST /api/v1/system/ble/pair` with optional `{"timeout_sec":120}`
+- `POST /api/v1/system/ble/clear_bond`
   - control routes require `web_service.control_enabled=true`.
 
 ### Authentication (menuconfig-driven)

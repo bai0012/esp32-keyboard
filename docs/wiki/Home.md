@@ -11,6 +11,7 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 - Optional integration bridge: Home Assistant REST event bus
 - Local web service foundation: versioned REST endpoints for future UI/automation
 - OTA update manager: API-triggered download + post-update self-check + confirm/rollback
+- Dual keyboard transport: USB HID or BLE HID (mutually exclusive at runtime)
 - OLED protection: pixel shift, inactivity dim/off, hourly inversion
 - OLED animation pipeline: build-time conversion from `assets/animations/*` to generated C assets
 
@@ -26,15 +27,20 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 9. [API Reference](API-Reference)
 10. [Home Assistant Integration](Home-Assistant-Integration)
 11. [Web Service](Web-Service)
-12. [OTA Update](OTA-Update)
-13. [Development Workflow](Development-Workflow)
-14. [Post-Change Automation](Post-Change-Automation)
-15. [Troubleshooting](Troubleshooting)
-16. [Documentation Policy](Documentation-Policy)
+12. [Bluetooth Keyboard](Bluetooth-Keyboard)
+13. [OTA Update](OTA-Update)
+14. [Development Workflow](Development-Workflow)
+15. [Post-Change Automation](Post-Change-Automation)
+16. [Troubleshooting](Troubleshooting)
+17. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP
 - `main/macropad_hid.c`: TinyUSB/HID descriptors and report sending
+- `main/hid_transport.c`: HID transport abstraction with runtime mode (`USB`/`BLE`)
+- `main/hid_usb_backend.c`: USB HID backend (TinyUSB)
+- `main/hid_ble_backend.c`: BLE HID backend (ESP HID + Bluedroid)
+- `main/keyboard_mode_store.c`: NVS persistence of keyboard mode selection
 - `main/touch_slider.c`: touch gesture state machine + hold-repeat
 - `main/oled.c`: OLED driver + framebuffer + text/bitmap primitives + clock scene renderer
 - `main/buzzer.c`: non-blocking passive buzzer tone playback

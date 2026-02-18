@@ -4,15 +4,22 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "hid_transport.h"
 
 typedef esp_err_t (*web_service_set_layer_cb_t)(uint8_t layer_index);
 typedef esp_err_t (*web_service_set_buzzer_cb_t)(bool enabled);
 typedef esp_err_t (*web_service_send_consumer_cb_t)(uint16_t usage);
+typedef esp_err_t (*web_service_set_keyboard_mode_cb_t)(hid_mode_t mode);
+typedef esp_err_t (*web_service_ble_pair_cb_t)(uint32_t timeout_sec);
+typedef esp_err_t (*web_service_ble_clear_bond_cb_t)(void);
 
 typedef struct {
     web_service_set_layer_cb_t set_layer;
     web_service_set_buzzer_cb_t set_buzzer;
     web_service_send_consumer_cb_t send_consumer;
+    web_service_set_keyboard_mode_cb_t set_keyboard_mode;
+    web_service_ble_pair_cb_t start_ble_pairing;
+    web_service_ble_clear_bond_cb_t clear_ble_bond;
 } web_service_control_if_t;
 
 esp_err_t web_service_init(void);

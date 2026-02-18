@@ -7,12 +7,16 @@ Firmware for a custom ESP32-S3 MacroPad with:
 - 15x SK6812 RGB LEDs
 - 128x64 I2C OLED display
 - Passive buzzer feedback (LEDC PWM)
-- USB HID (keyboard + consumer control)
+- Keyboard transport modes:
+  - USB mode: TinyUSB CDC + HID keyboard/consumer
+  - BLE mode: TinyUSB CDC-only + BLE HID keyboard/consumer
+  - modes are mutually exclusive at runtime
 - Optional Wi-Fi SNTP time sync
 - Captive portal provisioning fallback (AP + web UI + credential persistence)
 - Optional Home Assistant REST event bridge
 - Local web service foundation (future web UI / local API integration)
 - OTA update manager with rollback-safe post-update verification
+- BLE pairing/control interfaces (EC11 + REST API)
 
 Hardware reference is documented in `hardware_info.md`.
 
@@ -26,6 +30,9 @@ Hardware reference is documented in `hardware_info.md`.
   - software anti-flicker update path (change-driven LED refresh + USB status debounce)
   - inactivity auto-off timeout for all RGB LEDs
 - Runtime `MACROPAD` logs are gated until TinyUSB CDC is connected (helps with COM re-enumeration after flashing)
+- HID transport abstraction (`hid_transport`) decoupling app logic from USB/BLE backend
+- Keyboard mode persistence in NVS (`USB`/`BLE`) with controlled reboot apply
+- BLE pairing window and single-bond workflow (passkey + bond replacement policy)
 - OLED subsystem with clock scene, framebuffer primitives, and UTF-8 text entry points
 - Pluggable glyph-font interface for future multilingual rendering (including Chinese/CJK glyph packs)
 - Build-time OLED animation asset pipeline for boot/menu scenes (`assets/animations`)
@@ -46,6 +53,7 @@ Hardware reference is documented in `hardware_info.md`.
   - versioned REST base (`/api/v1/*`)
   - runtime state endpoints for health and input/layer telemetry
   - optional control endpoints (layer/buzzer/consumer/system/ota) gated by config
+  - keyboard mode and BLE pairing/bond-management endpoints
   - auto lifecycle: starts only when STA is connected and captive portal is inactive
 - OTA update workflow:
   - API-triggered firmware download (`/api/v1/system/ota`)
@@ -75,6 +83,10 @@ Hardware reference is documented in `hardware_info.md`.
 ## Repository Layout
 - `main/main.c`: app orchestration, input scan loop, task startup
 - `main/macropad_hid.c`: TinyUSB descriptors and HID report sending
+- `main/hid_transport.c`: mode-aware HID transport facade (`USB`/`BLE`)
+- `main/hid_usb_backend.c`: USB transport backend (TinyUSB HID)
+- `main/hid_ble_backend.c`: BLE transport backend (ESP HID over BLE)
+- `main/keyboard_mode_store.c`: NVS persistence for selected keyboard mode
 - `main/touch_slider.c`: touch gesture state machine and hold-repeat
 - `main/oled.c`: OLED core driver, framebuffer primitives, UTF-8 text path, and clock scene renderer
 - `main/buzzer.c`: passive buzzer tone queue and event helpers
@@ -89,6 +101,7 @@ Hardware reference is documented in `hardware_info.md`.
 - `tools/generate_oled_animation_header.py`: animation assets -> `main/oled_animation_assets.h` generator
 - `main/keymap_config.h`: auto-generated C config header (do not edit manually)
 - `main/Kconfig.projbuild`: Wi-Fi, NTP, timezone config entries
+- `main/Kconfig.projbuild`: Wi-Fi/NTP + HA + web auth + BLE identity/security entries
 - `partitions_8mb_ota.csv`: custom 8MB partition layout (2 OTA + cfgstore)
 
 ## Prerequisites
@@ -132,6 +145,8 @@ Edit `config/keymap_config.yaml`:
   - includes `led.off_timeout_sec` to auto-off all RGB LEDs on inactivity
 - buzzer behavior + RTTTL melodies (`buzzer.*`)
 - OLED protection and I2C speed (`oled.*`)
+- keyboard mode defaults/switch settings (`keyboard.mode.*`)
+- BLE runtime policy (`bluetooth.*`)
 - Home Assistant runtime publish behavior (`home_assistant.*`)
 - Captive portal behavior (`wifi_portal.*`)
 - Local web service behavior (`web_service.*`)
@@ -157,6 +172,9 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_WEB_BASIC_AUTH_PASSWORD` (local web service basic-auth password)
 - `MACROPAD_OTA_DEFAULT_URL` (optional default OTA URL used by API-triggered OTA when request URL is omitted)
 - `MACROPAD_OTA_HTTP_TIMEOUT_MS` (OTA HTTP timeout)
+- `MACROPAD_BLE_DEVICE_NAME` (BLE HID advertised name)
+- `MACROPAD_BLE_PASSKEY` (static BLE pairing passkey)
+- `MACROPAD_BLE_TX_POWER` (reserved BLE TX power preference)
 
 Connection behavior:
 - if menuconfig SSID/password are set, firmware tries STA at boot
@@ -175,6 +193,8 @@ Security note:
   - 2 taps: switch to layer 1
   - 3 taps: switch to layer 2 (or cancel Wi-Fi provisioning when captive portal is active)
   - 4+ taps: switch to layer 3
+  - `keyboard.mode.switch_tap_count` taps (default `5`): switch keyboard mode (`USB`<->`BLE`) and reboot
+  - precedence order: OTA confirm > keyboard mode switch > HA control > buzzer toggle > normal layer tap behavior
   - OTA verify mode override:
     - while OTA is waiting confirmation, normal tap actions are suspended
     - press EC11 `ota.confirm_tap_count` times (default 3) to confirm and finalize OTA image
@@ -213,6 +233,11 @@ Security note:
     - `GET /api/v1/system/ota`
     - `/api/v1/state` also includes nested `ota` status object
     - includes OTA reception progress: `download_total_bytes`, `download_read_bytes`, `download_elapsed_ms`, `download_percent`
+  - keyboard mode / BLE endpoints:
+    - `GET /api/v1/system/keyboard_mode`
+    - `POST /api/v1/system/keyboard_mode` with `{"mode":"usb"|"ble"}`
+    - `POST /api/v1/system/ble/pair` with optional `{"timeout_sec":120}`
+    - `POST /api/v1/system/ble/clear_bond`
   - service starts after Wi-Fi STA is connected and stops while captive portal is active
   - optional authentication (configured in menuconfig):
     - API key via `X-API-Key` header (`MACROPAD_WEB_API_KEY`)
@@ -235,6 +260,19 @@ Security note:
 - RGB idle-off protection:
   - all RGB LEDs turn off after `led.off_timeout_sec`
   - any user input activity restores RGB lighting
+
+## Keyboard Modes
+- `USB` and `BLE` modes are strictly mutually exclusive.
+- Boot mode selection:
+  - read persisted mode from NVS when `keyboard.mode.persist=true`
+  - otherwise use `keyboard.mode.default`
+- Mode application:
+  - mode changes are persisted then applied by controlled reboot
+  - BLE mode keeps USB CDC for logs/monitor, but USB HID keyboard is disabled
+- BLE pairing:
+  - passkey pairing (from `menuconfig`)
+  - single-bond policy (new bond replaces old one)
+  - pairing can be started via EC11/API
 
 ## OLED Display Details
 ### 1) Display content
@@ -277,6 +315,7 @@ Security note:
 - Wi-Fi provisioning/captive portal: `docs/wiki/Wi-Fi-Provisioning.md`
 - Web service API foundation: `docs/wiki/Web-Service.md`
 - OTA update and verification flow: `docs/wiki/OTA-Update.md`
+- BLE keyboard mode and pairing: `docs/wiki/Bluetooth-Keyboard.md`
 
 ## Documentation Policy (Required)
 For every new feature or behavior change, update docs in the same change set:

@@ -25,11 +25,11 @@
 #define TAG "WEB_SERVICE"
 
 #define WEB_SERVICE_BODY_MAX 512
-#define WEB_SERVICE_JSON_BUF 1024
+#define WEB_SERVICE_JSON_BUF 2048
 #define WEB_SERVICE_RETRY_MS 2000
 #define WEB_SERVICE_HEADER_MAX 256
 #define WEB_SERVICE_BASIC_EXPECTED_MAX 320
-#define WEB_SERVICE_ROUTE_COUNT 13U
+#define WEB_SERVICE_ROUTE_COUNT 20U
 #define WEB_SERVICE_MIN_URI_HANDLERS (WEB_SERVICE_ROUTE_COUNT + 2U)
 
 typedef struct {
@@ -265,6 +265,27 @@ static bool parse_json_string(const char *json, const char *key, char *out, size
     return true;
 }
 
+static const char *hid_mode_to_str(hid_mode_t mode)
+{
+    return (mode == HID_MODE_BLE) ? "ble" : "usb";
+}
+
+static bool parse_hid_mode(const char *value, hid_mode_t *out_mode)
+{
+    if (value == NULL || out_mode == NULL) {
+        return false;
+    }
+    if (strcmp(value, "usb") == 0) {
+        *out_mode = HID_MODE_USB;
+        return true;
+    }
+    if (strcmp(value, "ble") == 0) {
+        *out_mode = HID_MODE_BLE;
+        return true;
+    }
+    return false;
+}
+
 static esp_err_t http_send_json(httpd_req_t *req, const char *status, const char *json)
 {
     if (req == NULL || status == NULL || json == NULL) {
@@ -466,6 +487,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     char json[WEB_SERVICE_JSON_BUF] = {0};
     char ota_json[512] = {0};
     char key_name_json[96] = {0};
+    hid_transport_status_t hid = {0};
 
     web_service_lock();
     const uint8_t active_layer = s_ws.active_layer;
@@ -475,6 +497,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     const web_service_encoder_event_t encoder_event = s_ws.last_encoder;
     const web_service_swipe_event_t swipe_event = s_ws.last_swipe;
     web_service_unlock();
+    (void)hid_transport_get_status(&hid);
 
     json_escape_copy(key_name_json, sizeof(key_name_json), key_event.name);
     const uint32_t idle_ms = (uint32_t)pdTICKS_TO_MS(now - activity_tick);
@@ -496,6 +519,16 @@ static esp_err_t state_get_handler(httpd_req_t *req)
         "\"last_key\":{\"valid\":%s,\"index\":%u,\"pressed\":%s,\"usage\":%u,\"name\":\"%s\",\"age_ms\":%" PRIu32 "},"
         "\"last_encoder\":{\"valid\":%s,\"steps\":%" PRId32 ",\"usage\":%u,\"age_ms\":%" PRIu32 "},"
         "\"last_swipe\":{\"valid\":%s,\"layer_index\":%u,\"left_to_right\":%s,\"usage\":%u,\"age_ms\":%" PRIu32 "},"
+        "\"keyboard_mode\":\"%s\","
+        "\"mode_switch_pending\":%s,"
+        "\"mode_switch_target\":\"%s\","
+        "\"usb_mounted\":%s,"
+        "\"usb_hid_ready\":%s,"
+        "\"ble_connected\":%s,"
+        "\"ble_bonded\":%s,"
+        "\"ble_pairing_active\":%s,"
+        "\"ble_pairing_remaining_ms\":%" PRIu32 ","
+        "\"ble_peer_addr\":\"%s\","
         "%s}",
         (unsigned)active_layer,
         (unsigned)active_layer + 1U,
@@ -516,6 +549,16 @@ static esp_err_t state_get_handler(httpd_req_t *req)
         swipe_event.left_to_right ? "true" : "false",
         (unsigned)swipe_event.usage,
         swipe_age_ms,
+        hid_mode_to_str(hid.mode),
+        hid.mode_switch_pending ? "true" : "false",
+        hid_mode_to_str(hid.mode_switch_target),
+        hid.usb_mounted ? "true" : "false",
+        hid.usb_hid_ready ? "true" : "false",
+        hid.ble_connected ? "true" : "false",
+        hid.ble_bonded ? "true" : "false",
+        hid.ble_pairing_window_active ? "true" : "false",
+        hid.ble_pairing_remaining_ms,
+        hid.ble_peer_addr,
         ota_json);
     if (n <= 0 || (size_t)n >= sizeof(json)) {
         return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"encode\"}");
@@ -741,6 +784,181 @@ static esp_err_t control_consumer_post_handler(httpd_req_t *req)
     return http_send_json(req, "200 OK", "{\"ok\":true}");
 }
 
+static esp_err_t keyboard_mode_get_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    hid_transport_status_t st = {0};
+    (void)hid_transport_get_status(&st);
+
+    char json[WEB_SERVICE_JSON_BUF] = {0};
+    const int n = snprintf(json,
+                           sizeof(json),
+                           "{\"ok\":true,\"mode\":\"%s\",\"mode_switch_pending\":%s,"
+                           "\"mode_switch_target\":\"%s\",\"ble_connected\":%s,"
+                           "\"ble_bonded\":%s,\"ble_pairing_active\":%s,"
+                           "\"ble_pairing_remaining_ms\":%" PRIu32 ",\"ble_peer_addr\":\"%s\"}",
+                           hid_mode_to_str(st.mode),
+                           st.mode_switch_pending ? "true" : "false",
+                           hid_mode_to_str(st.mode_switch_target),
+                           st.ble_connected ? "true" : "false",
+                           st.ble_bonded ? "true" : "false",
+                           st.ble_pairing_window_active ? "true" : "false",
+                           st.ble_pairing_remaining_ms,
+                           st.ble_peer_addr);
+    if (n <= 0 || (size_t)n >= sizeof(json)) {
+        return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"encode\"}");
+    }
+    return http_send_json(req, "200 OK", json);
+}
+
+static esp_err_t keyboard_mode_post_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    esp_err_t guard = ensure_control_ready(req);
+    if (guard != ESP_OK) {
+        return guard;
+    }
+
+    char body[WEB_SERVICE_BODY_MAX] = {0};
+    if (http_read_body(req, body, sizeof(body)) != ESP_OK) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"invalid body\"}");
+    }
+
+    char mode_str[16] = {0};
+    if (!parse_json_string(body, "mode", mode_str, sizeof(mode_str))) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"missing mode\"}");
+    }
+    for (char *p = mode_str; *p != '\0'; ++p) {
+        *p = (char)tolower((int)(unsigned char)*p);
+    }
+
+    hid_mode_t target = HID_MODE_USB;
+    if (!parse_hid_mode(mode_str, &target)) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"invalid mode\"}");
+    }
+
+    web_service_lock();
+    const web_service_set_keyboard_mode_cb_t set_mode = s_ws.control.set_keyboard_mode;
+    web_service_unlock();
+    if (set_mode == NULL) {
+        return http_send_json(req, "503 Service Unavailable",
+                              "{\"ok\":false,\"error\":\"keyboard-mode callback missing\"}");
+    }
+
+    const esp_err_t err = set_mode(target);
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+        return http_send_json(req, "409 Conflict",
+                              "{\"ok\":false,\"error\":\"mode not supported\"}");
+    }
+    if (err != ESP_OK) {
+        return http_send_json(req, "500 Internal Server Error",
+                              "{\"ok\":false,\"error\":\"mode switch failed\"}");
+    }
+
+    web_service_mark_user_activity();
+    return http_send_json(req,
+                          "202 Accepted",
+                          "{\"ok\":true,\"status\":\"switch_pending\"}");
+}
+
+static esp_err_t ble_pair_post_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    esp_err_t guard = ensure_control_ready(req);
+    if (guard != ESP_OK) {
+        return guard;
+    }
+
+    char body[WEB_SERVICE_BODY_MAX] = {0};
+    const esp_err_t body_err = http_read_body(req, body, sizeof(body));
+    if (body_err != ESP_OK) {
+        return http_send_json(req, "400 Bad Request",
+                              "{\"ok\":false,\"error\":\"invalid body\"}");
+    }
+
+    int timeout_sec = MACRO_BLUETOOTH_PAIRING_WINDOW_SEC;
+    if (body[0] != '\0') {
+        int parsed = 0;
+        if (parse_json_int(body, "timeout_sec", &parsed)) {
+            if (parsed < 0 || parsed > 3600) {
+                return http_send_json(req, "400 Bad Request",
+                                      "{\"ok\":false,\"error\":\"timeout out of range\"}");
+            }
+            timeout_sec = parsed;
+        }
+    }
+
+    web_service_lock();
+    const web_service_ble_pair_cb_t start_pairing = s_ws.control.start_ble_pairing;
+    web_service_unlock();
+    if (start_pairing == NULL) {
+        return http_send_json(req, "503 Service Unavailable",
+                              "{\"ok\":false,\"error\":\"ble-pair callback missing\"}");
+    }
+
+    const esp_err_t err = start_pairing((uint32_t)timeout_sec);
+    if (err == ESP_ERR_INVALID_STATE) {
+        return http_send_json(req, "409 Conflict",
+                              "{\"ok\":false,\"error\":\"ble not active\"}");
+    }
+    if (err != ESP_OK) {
+        return http_send_json(req, "500 Internal Server Error",
+                              "{\"ok\":false,\"error\":\"pair start failed\"}");
+    }
+
+    web_service_mark_user_activity();
+    return http_send_json(req, "200 OK", "{\"ok\":true}");
+}
+
+static esp_err_t ble_clear_bond_post_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    esp_err_t guard = ensure_control_ready(req);
+    if (guard != ESP_OK) {
+        return guard;
+    }
+
+    web_service_lock();
+    const web_service_ble_clear_bond_cb_t clear_bond = s_ws.control.clear_ble_bond;
+    web_service_unlock();
+    if (clear_bond == NULL) {
+        return http_send_json(req, "503 Service Unavailable",
+                              "{\"ok\":false,\"error\":\"ble-clear-bond callback missing\"}");
+    }
+
+    const esp_err_t err = clear_bond();
+    if (err == ESP_ERR_INVALID_STATE) {
+        return http_send_json(req, "409 Conflict",
+                              "{\"ok\":false,\"error\":\"ble not active\"}");
+    }
+    if (err != ESP_OK) {
+        return http_send_json(req, "500 Internal Server Error",
+                              "{\"ok\":false,\"error\":\"clear bond failed\"}");
+    }
+
+    web_service_mark_user_activity();
+    return http_send_json(req, "200 OK", "{\"ok\":true}");
+}
+
 static esp_err_t register_routes(httpd_handle_t server)
 {
     const httpd_uri_t routes[WEB_SERVICE_ROUTE_COUNT] = {
@@ -751,12 +969,19 @@ static esp_err_t register_routes(httpd_handle_t server)
         {.uri = "/api/v1/control/consumer", .method = HTTP_POST, .handler = control_consumer_post_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_GET, .handler = ota_get_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_GET, .handler = keyboard_mode_get_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_POST, .handler = keyboard_mode_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ble/pair", .method = HTTP_POST, .handler = ble_pair_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ble/clear_bond", .method = HTTP_POST, .handler = ble_clear_bond_post_handler, .user_ctx = NULL},
         {.uri = "/api/v1/health", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/state", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/control/layer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/control/buzzer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/control/consumer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ble/pair", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ble/clear_bond", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
     };
 
     for (size_t i = 0; i < WEB_SERVICE_ROUTE_COUNT; ++i) {

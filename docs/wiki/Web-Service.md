@@ -39,6 +39,12 @@ Base prefix: `/api/v1`
     - idle age
     - latest key/encoder/swipe telemetry
     - nested OTA state object
+    - keyboard mode and BLE status:
+      - `keyboard_mode`, `mode_switch_pending`, `mode_switch_target`
+      - `usb_mounted`, `usb_hid_ready`
+      - `ble_connected`, `ble_bonded`, `ble_pairing_active`, `ble_pairing_remaining_ms`, `ble_peer_addr`
+- `GET /api/v1/system/keyboard_mode`
+  - Returns focused keyboard-mode/BLE status payload.
 - `GET /api/v1/system/ota`
   - Returns OTA manager state/status snapshot.
 
@@ -58,6 +64,14 @@ Routes:
   - body (optional): `{"url":"https://host/path/fw.bin"}` or `{"url":"http://host/path/fw.bin"}`
   - if URL is omitted, menuconfig default URL is used
   - OTA route also requires control enable
+- `POST /api/v1/system/keyboard_mode`
+  - body: `{"mode":"usb"}` or `{"mode":"ble"}`
+  - persists target mode and schedules controlled reboot apply
+- `POST /api/v1/system/ble/pair`
+  - body (optional): `{"timeout_sec":120}`
+  - opens BLE pairing window in BLE mode
+- `POST /api/v1/system/ble/clear_bond`
+  - clears existing BLE bond information
 
 If control is disabled, routes return `403`.
 
@@ -81,6 +95,9 @@ If `max_uri_handlers` is configured too low, runtime now auto-adjusts it to a sa
 - `set_layer`
 - `set_buzzer`
 - `send_consumer`
+- `set_keyboard_mode`
+- `start_ble_pairing`
+- `clear_ble_bond`
 
 This keeps the web module decoupled from input/HID logic and supports future custom actions.
 

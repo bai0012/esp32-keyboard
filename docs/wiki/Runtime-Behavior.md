@@ -5,6 +5,9 @@
 - `display_task`: refreshes OLED clock every 200ms
 - Runtime `MACROPAD` info logs are briefly gated during startup while TinyUSB CDC enumerates, then fallback to normal output.
 - Startup flow is non-blocking: boot does not wait for CDC connection before initializing subsystems.
+- HID transport is mode-based:
+  - `USB` mode: TinyUSB `CDC + HID`
+  - `BLE` mode: TinyUSB `CDC only` + BLE HID
 
 ## 2) Key Handling
 - GPIO input is debounced (`DEBOUNCE_MS`).
@@ -19,6 +22,9 @@
   - 2 taps: layer 1
   - 3 taps: layer 2 (or provisioning cancel when Wi-Fi captive portal is active)
   - 4+ taps: layer 3
+- Keyboard mode switch:
+  - `keyboard.mode.switch_tap_count` taps (default `5`) toggles `USB <-> BLE`
+  - mode switch is persisted then applied by controlled reboot
 - OTA verify override:
   - when OTA is awaiting confirmation, normal multi-tap actions are suspended
   - required tap count is `ota.confirm_tap_count` (default `3`)
@@ -127,6 +133,11 @@ For buzzer behavior details and tuning guidance:
 - Optional write routes are gated by config (`web_service.control_enabled`).
 - Input loop continuously feeds layer/key/encoder/touch state into module cache.
 - OTA control/state routes are exposed under `/api/v1/system/ota` and in `/api/v1/state`.
+- Keyboard mode/BLE routes are exposed:
+  - `/api/v1/system/keyboard_mode`
+  - `/api/v1/system/ble/pair`
+  - `/api/v1/system/ble/clear_bond`
+- `/api/v1/state` includes mode/transport fields (`keyboard_mode`, BLE pairing/link status).
 
 Details and route reference:
 - [Web Service](Web-Service)
@@ -143,3 +154,15 @@ Details and route reference:
   - temporary "OTA confirmed" banner is shown, then OLED returns to normal scene automatically.
 - If timeout expires (`ota.confirm_timeout_sec > 0`):
   - `esp_ota_mark_app_invalid_rollback_and_reboot()` is called.
+
+## 13) BLE Pairing Runtime
+- BLE mode pairing uses passkey security and bonding.
+- If no bond exists in BLE mode, pairing window starts automatically.
+- Manual pairing window can be opened via web API.
+- Single-bond policy is enforced (new bond replaces old bond).
+- Tap precedence order:
+  - OTA confirm
+  - keyboard mode switch
+  - Home Assistant control
+  - buzzer toggle
+  - normal layer/single-tap behavior
