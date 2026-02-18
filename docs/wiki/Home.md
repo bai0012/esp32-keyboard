@@ -28,8 +28,9 @@ This wiki is organized as clear, task-oriented pages for development and mainten
 11. [Web Service](Web-Service)
 12. [OTA Update](OTA-Update)
 13. [Development Workflow](Development-Workflow)
-14. [Troubleshooting](Troubleshooting)
-15. [Documentation Policy](Documentation-Policy)
+14. [Post-Change Automation](Post-Change-Automation)
+15. [Troubleshooting](Troubleshooting)
+16. [Documentation Policy](Documentation-Policy)
 
 ## Core Source Map
 - `main/main.c`: startup, task orchestration, input loop, LEDs, Wi-Fi/SNTP

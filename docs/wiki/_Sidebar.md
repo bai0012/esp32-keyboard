@@ -12,5 +12,6 @@
 - [Touch Slider Algorithm](Touch-Slider-Algorithm)
 - [API Reference](API-Reference)
 - [Development Workflow](Development-Workflow)
+- [Post-Change Automation](Post-Change-Automation)
 - [Troubleshooting](Troubleshooting)
 - [Documentation Policy](Documentation-Policy)

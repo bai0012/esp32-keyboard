@@ -9,6 +9,7 @@
 6. For OLED animations, update `assets/animations/manifest.yaml` and frame files.
 7. Build and run target behavior tests.
 8. Update documentation pages (mandatory).
+9. Run post-change automation pipeline (`tools/post_change_pipeline.ps1`) for build/commit/push.
 
 ## 2) Module Ownership Guidance
 - Input orchestration and task lifecycle: `main/main.c`
@@ -24,6 +25,24 @@
 - [ ] Touch swipe behavior verified with logs if touched
 - [ ] Encoder tap and rotation behavior verified if touched
 - [ ] README/wiki updated for changed behavior
+- [ ] Main repo committed/pushed once per request
+- [ ] Wiki committed/pushed if wiki pages changed
+
+## 5) Standard Pipeline Commands
+```powershell
+# Start of a request
+.\tools\post_change_pipeline.ps1 -Mode begin
+
+# End of a request (after edits)
+.\tools\post_change_pipeline.ps1 -Mode finish -Type feat -Message "short summary"
+```
+
+Rules enforced by the script:
+- build gate (`idf.py build`) always runs before commit
+- one commit per request
+- stage only files changed since baseline
+- push main repo with one rebase-retry on rejection
+- sync/push wiki only when `docs/wiki/*.md` changed
 
 ## 4) Logging Practices
 - Keep `ESP_LOGI` for operational signals.
