@@ -216,7 +216,7 @@ Behavior/tuning reference:
 - `POST /api/v1/control/layer` with `{"layer":2}`
 - `POST /api/v1/control/buzzer` with `{"enabled":true}`
 - `POST /api/v1/control/consumer` with `{"usage":233}`
-- `POST /api/v1/system/ota` with optional `{"url":"https://host/fw.bin"}`
+- `POST /api/v1/system/ota` with optional `{"url":"https://host/fw.bin"}` or `{"url":"http://host/fw.bin"}`
   - control routes require `web_service.control_enabled=true`.
 
 ### Authentication (menuconfig-driven)

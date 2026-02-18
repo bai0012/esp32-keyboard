@@ -201,6 +201,8 @@ static const macro_touch_layer_config_t g_touch_layer_config[MACRO_LAYER_COUNT] 
 #define MACRO_WEB_SERVICE_CONTROL_ENABLED false
 
 #define MACRO_OTA_ENABLED true
+#define MACRO_OTA_ALLOW_HTTP false
+#define MACRO_OTA_SKIP_CERT_VERIFY false
 #define MACRO_OTA_CONFIRM_TAP_COUNT 3
 #define MACRO_OTA_CONFIRM_TIMEOUT_SEC 120
 #define MACRO_OTA_SELF_CHECK_DURATION_MS 2000

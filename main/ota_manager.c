@@ -68,12 +68,31 @@ static void ota_set_error_name_locked(esp_err_t err)
     strlcpy(s_ota.last_error, esp_err_to_name(err), sizeof(s_ota.last_error));
 }
 
-static bool ota_url_is_supported(const char *url)
+static bool ota_url_is_https(const char *url)
 {
     if (url == NULL) {
         return false;
     }
     return strncmp(url, "https://", 8) == 0;
+}
+
+static bool ota_url_is_http(const char *url)
+{
+    if (url == NULL) {
+        return false;
+    }
+    return strncmp(url, "http://", 7) == 0;
+}
+
+static bool ota_url_is_supported(const char *url)
+{
+    if (ota_url_is_https(url)) {
+        return true;
+    }
+    if (MACRO_OTA_ALLOW_HTTP && ota_url_is_http(url)) {
+        return true;
+    }
+    return false;
 }
 
 const char *ota_manager_state_name(ota_manager_state_t state)
@@ -111,12 +130,20 @@ static void ota_worker_task(void *arg)
     strlcpy(url, s_ota.current_url, sizeof(url));
     ota_unlock();
 
+    const bool is_https = ota_url_is_https(url);
     esp_http_client_config_t http_cfg = {
         .url = url,
         .timeout_ms = CONFIG_MACROPAD_OTA_HTTP_TIMEOUT_MS,
         .keep_alive_enable = true,
-        .crt_bundle_attach = esp_crt_bundle_attach,
     };
+    if (is_https && !MACRO_OTA_SKIP_CERT_VERIFY) {
+        http_cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    } else if (is_https && MACRO_OTA_SKIP_CERT_VERIFY) {
+        http_cfg.skip_cert_common_name_check = true;
+        ESP_LOGW(TAG, "OTA HTTPS certificate verification is DISABLED by config");
+    } else if (ota_url_is_http(url)) {
+        ESP_LOGW(TAG, "OTA over plain HTTP is enabled by config (insecure)");
+    }
     esp_https_ota_config_t ota_cfg = {
         .http_config = &http_cfg,
     };
@@ -213,8 +240,10 @@ esp_err_t ota_manager_init(void)
     }
 
     ESP_LOGI(TAG,
-             "ready enabled=%d confirm_taps=%u timeout=%us default_url=%s",
+             "ready enabled=%d allow_http=%d skip_cert_verify=%d confirm_taps=%u timeout=%us default_url=%s",
              MACRO_OTA_ENABLED,
+             MACRO_OTA_ALLOW_HTTP,
+             MACRO_OTA_SKIP_CERT_VERIFY,
              (unsigned)MACRO_OTA_CONFIRM_TAP_COUNT,
              (unsigned)MACRO_OTA_CONFIRM_TIMEOUT_SEC,
              CONFIG_MACROPAD_OTA_DEFAULT_URL);
@@ -283,8 +312,17 @@ esp_err_t ota_manager_start_update(const char *url)
         return ESP_ERR_INVALID_ARG;
     }
     if (!ota_url_is_supported(chosen_url)) {
-        ESP_LOGE(TAG, "Only HTTPS OTA URLs are supported");
+        ESP_LOGE(TAG, "Unsupported OTA URL scheme: %s", chosen_url);
+        ESP_LOGE(TAG, "Allowed schemes: https://%s", MACRO_OTA_ALLOW_HTTP ? " and http://" : "");
         return ESP_ERR_NOT_SUPPORTED;
+    }
+    if (ota_url_is_https(chosen_url) && MACRO_OTA_SKIP_CERT_VERIFY) {
+#if !defined(CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY) || !defined(CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP)
+        ESP_LOGE(TAG,
+                 "skip_cert_verify requires CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y and "
+                 "CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=y");
+        return ESP_ERR_NOT_SUPPORTED;
+#endif
     }
 
     ota_lock();
@@ -471,4 +509,3 @@ bool ota_manager_get_oled_lines(char *line0,
 
     return false;
 }
-

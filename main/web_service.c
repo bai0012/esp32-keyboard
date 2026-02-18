@@ -584,7 +584,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     }
     if (err == ESP_ERR_NOT_SUPPORTED) {
         return http_send_json(req, "403 Forbidden",
-                              "{\"ok\":false,\"error\":\"ota not supported or url not https\"}");
+                              "{\"ok\":false,\"error\":\"ota not supported by current scheme/security config\"}");
     }
     if (err == ESP_ERR_INVALID_STATE) {
         return http_send_json(req, "409 Conflict",

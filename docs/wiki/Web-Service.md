@@ -55,7 +55,7 @@ Routes:
 - `POST /api/v1/control/consumer`
   - body: `{"usage":233}`
 - `POST /api/v1/system/ota`
-  - body (optional): `{"url":"https://host/path/fw.bin"}`
+  - body (optional): `{"url":"https://host/path/fw.bin"}` or `{"url":"http://host/path/fw.bin"}`
   - if URL is omitted, menuconfig default URL is used
   - OTA route also requires control enable
 

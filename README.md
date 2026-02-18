@@ -206,7 +206,7 @@ Security note:
     - `POST /api/v1/control/layer` with `{"layer":2}` (1-based layer index)
     - `POST /api/v1/control/buzzer` with `{"enabled":true}`
     - `POST /api/v1/control/consumer` with `{"usage":233}`
-    - `POST /api/v1/system/ota` with optional `{"url":"https://host/path/fw.bin"}`
+    - `POST /api/v1/system/ota` with optional `{"url":"http://host/path/fw.bin"}` or `{"url":"https://host/path/fw.bin"}`
   - OTA status endpoint:
     - `GET /api/v1/system/ota`
     - `/api/v1/state` also includes nested `ota` status object
@@ -223,6 +223,9 @@ Security note:
   - OLED shows confirmation prompt
   - EC11 multi-tap confirm finalizes firmware
   - if `ota.confirm_timeout_sec` expires (non-zero), firmware rolls back automatically
+  - optional transport/security toggles:
+    - `ota.allow_http`: allow plain HTTP OTA URL
+    - `ota.skip_cert_verify`: skip HTTPS certificate verification
 - OLED protection:
   - Pixel shift applies to all rendered content.
   - Any user input activity restores normal brightness and screen-on state.

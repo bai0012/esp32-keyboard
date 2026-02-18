@@ -140,6 +140,8 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `web_service.cors_enabled` | `true` | Adds permissive CORS headers for browser-based tools. |
 | `web_service.control_enabled` | `false` | Enables write/control routes (`layer/buzzer/consumer/system/ota`). |
 | `ota.enabled` | `true` | Master OTA workflow switch. |
+| `ota.allow_http` | `false` | Allows OTA from `http://` URL (insecure; testing/LAN only). |
+| `ota.skip_cert_verify` | `false` | Skips HTTPS certificate verification (insecure; requires insecure TLS/HTTPS-OTA build options). |
 | `ota.confirm_tap_count` | `3` | Required EC11 tap count to confirm pending OTA firmware. |
 | `ota.confirm_timeout_sec` | `120` | Timeout before forced rollback (`0` disables timeout). |
 | `ota.self_check_duration_ms` | `2000` | Time spent in automated self-check phase before prompt. |

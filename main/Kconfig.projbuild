@@ -63,10 +63,10 @@ config MACROPAD_WEB_BASIC_AUTH_PASSWORD
         Leave empty to disable Basic Auth.
 
 config MACROPAD_OTA_DEFAULT_URL
-    string "Default OTA URL (HTTPS)"
+    string "Default OTA URL (HTTP/HTTPS)"
     default ""
     help
-        Optional default HTTPS firmware URL for OTA endpoint.
+        Optional default firmware URL for OTA endpoint.
         Used when /api/v1/system/ota is called without a URL payload.
 
 config MACROPAD_OTA_HTTP_TIMEOUT_MS

@@ -31,6 +31,8 @@ Key responsibilities:
 ## 4) Configuration
 Section in `config/keymap_config.yaml`:
 - `ota.enabled`
+- `ota.allow_http`
+- `ota.skip_cert_verify`
 - `ota.confirm_tap_count`
 - `ota.confirm_timeout_sec`
 - `ota.self_check_duration_ms`
@@ -46,10 +48,15 @@ Base: `/api/v1`
 - `GET /system/ota`
   - Returns OTA status state machine fields.
 - `POST /system/ota`
-  - Body (optional): `{"url":"https://example/fw.bin"}`
+  - Body (optional): `{"url":"https://example/fw.bin"}` or `{"url":"http://example/fw.bin"}`
   - If body URL is omitted, `CONFIG_MACROPAD_OTA_DEFAULT_URL` is used.
   - Requires `web_service.control_enabled=true`.
   - Requires web auth if API key / Basic Auth is configured.
+
+Transport/security behavior:
+- HTTPS is always allowed.
+- HTTP is allowed only when `ota.allow_http=true`.
+- HTTPS cert verification can be disabled only when `ota.skip_cert_verify=true`.
 
 `GET /state` also includes nested `ota` object.
 

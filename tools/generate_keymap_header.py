@@ -112,6 +112,8 @@ def render_header(cfg: dict[str, Any]) -> str:
     })
     ota = cfg.get("ota", {
         "enabled": True,
+        "allow_http": False,
+        "skip_cert_verify": False,
         "confirm_tap_count": 3,
         "confirm_timeout_sec": 120,
         "self_check_duration_ms": 2000,
@@ -319,6 +321,8 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append(f"#define MACRO_WEB_SERVICE_CONTROL_ENABLED {c_bool(web_service.get('control_enabled', False))}")
     out.append("")
     out.append(f"#define MACRO_OTA_ENABLED {c_bool(ota.get('enabled', True))}")
+    out.append(f"#define MACRO_OTA_ALLOW_HTTP {c_bool(ota.get('allow_http', False))}")
+    out.append(f"#define MACRO_OTA_SKIP_CERT_VERIFY {c_bool(ota.get('skip_cert_verify', False))}")
     out.append(f"#define MACRO_OTA_CONFIRM_TAP_COUNT {as_int(ota.get('confirm_tap_count', 3), 'ota.confirm_tap_count')}")
     out.append(f"#define MACRO_OTA_CONFIRM_TIMEOUT_SEC {as_int(ota.get('confirm_timeout_sec', 120), 'ota.confirm_timeout_sec')}")
     out.append(f"#define MACRO_OTA_SELF_CHECK_DURATION_MS {as_int(ota.get('self_check_duration_ms', 2000), 'ota.self_check_duration_ms')}")
