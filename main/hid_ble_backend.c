@@ -344,7 +344,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
         err != ESP_ERR_INVALID_STATE &&
         err != ESP_ERR_NOT_FOUND &&
         err != ESP_ERR_NOT_SUPPORTED) {
-        return err;
+        ESP_LOGW(TAG, "esp_bt_controller_mem_release(CLASSIC_BT) ignored: %s", esp_err_to_name(err));
     }
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();

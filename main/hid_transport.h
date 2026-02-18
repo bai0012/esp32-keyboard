@@ -28,6 +28,8 @@ typedef struct {
     bool ble_connected;
     bool ble_advertising;
     bool ble_bonded;
+    bool ble_init_failed;
+    esp_err_t ble_init_error;
     bool ble_pairing_window_active;
     uint32_t ble_pairing_remaining_ms;
     uint32_t ble_passkey;

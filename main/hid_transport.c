@@ -21,6 +21,8 @@ typedef struct {
     bool mode_switch_pending;
     hid_mode_t mode_switch_target;
     TickType_t mode_switch_reboot_tick;
+    bool ble_init_failed;
+    esp_err_t ble_init_error;
 } hid_transport_ctx_t;
 
 static hid_transport_ctx_t s_ctx = {0};
@@ -43,6 +45,7 @@ esp_err_t hid_transport_init(void)
 
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.mode = default_mode();
+    s_ctx.ble_init_error = ESP_OK;
     ESP_LOGI(TAG, "keyboard mode default=%s", s_ctx.mode == HID_MODE_USB ? "usb" : "ble");
 
     if (MACRO_KEYBOARD_MODE_PERSIST) {
@@ -71,6 +74,8 @@ esp_err_t hid_transport_init(void)
         if (ble_err == ESP_OK) {
             ble_ready = true;
         } else {
+            s_ctx.ble_init_failed = true;
+            s_ctx.ble_init_error = ble_err;
             ESP_LOGE(TAG,
                      "BLE init failed in BLE mode: %s; falling back to USB mode",
                      esp_err_to_name(ble_err));
@@ -243,6 +248,8 @@ bool hid_transport_get_status(hid_transport_status_t *out_status)
         out_status->ble_connected = ble.connected;
         out_status->ble_advertising = ble.advertising;
         out_status->ble_bonded = ble.bonded;
+        out_status->ble_init_failed = s_ctx.ble_init_failed;
+        out_status->ble_init_error = s_ctx.ble_init_error;
         out_status->ble_pairing_window_active = ble.pairing_window_active;
         out_status->ble_pairing_remaining_ms = ble.pairing_remaining_ms;
         out_status->ble_passkey = ble.passkey;
