@@ -16,13 +16,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Invoke-Git {
+function Run-Git {
     param(
         [string]$Repo,
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Args
+        [string[]]$GitArgs
     )
-    $output = & git -C $Repo @Args 2>&1
+    $output = & git -C $Repo @GitArgs 2>&1
     $code = $LASTEXITCODE
     return [pscustomobject]@{
         ExitCode = $code
@@ -33,10 +32,10 @@ function Invoke-Git {
 function Assert-GitOk {
     param(
         [string]$Repo,
-        [string[]]$Args,
+        [string[]]$GitArgs,
         [string]$Context
     )
-    $r = Invoke-Git -Repo $Repo -Args $Args
+    $r = Run-Git -Repo $Repo -GitArgs $GitArgs
     if ($r.ExitCode -ne 0) {
         throw "$Context failed`n$($r.Output -join "`n")"
     }
@@ -46,7 +45,7 @@ function Assert-GitOk {
 function Get-DirtyEntries {
     param([string]$Repo)
 
-    $lines = Assert-GitOk -Repo $Repo -Args @("status", "--porcelain=v1") -Context "git status"
+    $lines = Assert-GitOk -Repo $Repo -GitArgs @("status", "--porcelain=v1") -Context "git status"
     $entries = @()
 
     foreach ($line in $lines) {
@@ -66,7 +65,7 @@ function Get-DirtyEntries {
         $fullPath = Join-Path $Repo $path
         $hash = ""
         if (Test-Path -LiteralPath $fullPath) {
-            $hashOut = Assert-GitOk -Repo $Repo -Args @("hash-object", "--", $path) -Context "git hash-object $path"
+            $hashOut = Assert-GitOk -Repo $Repo -GitArgs @("hash-object", "--", $path) -Context "git hash-object $path"
             $hash = ($hashOut | Select-Object -First 1).Trim()
         }
 
@@ -83,8 +82,14 @@ function Get-DirtyEntries {
 function Get-RepoSnapshot {
     param([string]$Repo)
 
-    $branch = (Assert-GitOk -Repo $Repo -Args @("rev-parse", "--abbrev-ref", "HEAD") -Context "git rev-parse")[0].Trim()
-    $remotes = Assert-GitOk -Repo $Repo -Args @("remote", "-v") -Context "git remote -v"
+    $branchOut = Assert-GitOk -Repo $Repo -GitArgs @("rev-parse", "--abbrev-ref", "HEAD") -Context "git rev-parse"
+    if ($branchOut -is [array]) {
+        $branch = ($branchOut | Select-Object -First 1).ToString().Trim()
+    }
+    else {
+        $branch = $branchOut.ToString().Trim()
+    }
+    $remotes = Assert-GitOk -Repo $Repo -GitArgs @("remote", "-v") -Context "git remote -v"
     $dirty = Get-DirtyEntries -Repo $Repo
 
     return [pscustomobject]@{
@@ -135,18 +140,18 @@ function Push-WithOneRetry {
         [string]$Branch
     )
 
-    $push1 = Invoke-Git -Repo $Repo -Args @("push", $Remote, $Branch)
+    $push1 = Run-Git -Repo $Repo -GitArgs @("push", $Remote, $Branch)
     if ($push1.ExitCode -eq 0) {
         return
     }
 
     Write-Warning "Initial push failed; trying pull --rebase once."
-    $pull = Invoke-Git -Repo $Repo -Args @("pull", "--rebase", $Remote, $Branch)
+    $pull = Run-Git -Repo $Repo -GitArgs @("pull", "--rebase", $Remote, $Branch)
     if ($pull.ExitCode -ne 0) {
         throw "Push rejected and pull --rebase failed`n$($pull.Output -join "`n")"
     }
 
-    $push2 = Invoke-Git -Repo $Repo -Args @("push", $Remote, $Branch)
+    $push2 = Run-Git -Repo $Repo -GitArgs @("push", $Remote, $Branch)
     if ($push2.ExitCode -ne 0) {
         throw "Push still failing after pull --rebase`n$($push2.Output -join "`n")"
     }
@@ -211,13 +216,13 @@ function Sync-WikiDocs {
         }
     }
 
-    $wikiStatus = Assert-GitOk -Repo $WikiRepo -Args @("status", "--porcelain=v1") -Context "wiki git status"
+    $wikiStatus = Assert-GitOk -Repo $WikiRepo -GitArgs @("status", "--porcelain=v1") -Context "wiki git status"
     if (-not $wikiStatus -or $wikiStatus.Count -eq 0) {
         Write-Host "Wiki repo unchanged after sync; skipping wiki commit."
         return $false
     }
 
-    Assert-GitOk -Repo $WikiRepo -Args @("add", "--all") -Context "wiki git add"
+    Assert-GitOk -Repo $WikiRepo -GitArgs @("add", "--all") -Context "wiki git add"
     return $true
 }
 
@@ -265,9 +270,9 @@ $touchedMain | ForEach-Object { Write-Host " - $_" }
 Run-IdfBuild -Repo $mainRepo -InitScriptPath $IdfInitScript -InitId $IdfId
 
 $addArgs = @("add", "--") + $touchedMain
-Assert-GitOk -Repo $mainRepo -Args $addArgs -Context "git add touched files"
+Assert-GitOk -Repo $mainRepo -GitArgs $addArgs -Context "git add touched files"
 
-$cachedDiff = Invoke-Git -Repo $mainRepo -Args @("diff", "--cached", "--quiet")
+$cachedDiff = Run-Git -Repo $mainRepo -GitArgs @("diff", "--cached", "--quiet")
 if ($cachedDiff.ExitCode -eq 0) {
     Write-Host "No-op: nothing staged after touched-file filtering."
     Remove-Item -LiteralPath $baselineFile -Force
@@ -275,12 +280,12 @@ if ($cachedDiff.ExitCode -eq 0) {
 }
 
 $commitMsg = "$Type`: $Message"
-Assert-GitOk -Repo $mainRepo -Args @("commit", "-m", $commitMsg) -Context "git commit"
+Assert-GitOk -Repo $mainRepo -GitArgs @("commit", "-m", $commitMsg) -Context "git commit"
 Push-WithOneRetry -Repo $mainRepo -Remote "origin" -Branch $currentMain.branch
 
 $wikiNeedsCommit = Sync-WikiDocs -MainRepo $mainRepo -WikiRepo $wikiRepo -TouchedMainFiles $touchedMain
 if ($wikiNeedsCommit) {
-    Assert-GitOk -Repo $wikiRepo -Args @("commit", "-m", $commitMsg) -Context "wiki git commit"
+    Assert-GitOk -Repo $wikiRepo -GitArgs @("commit", "-m", $commitMsg) -Context "wiki git commit"
     Push-WithOneRetry -Repo $wikiRepo -Remote "origin" -Branch $currentWiki.branch
 }
 
