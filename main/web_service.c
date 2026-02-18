@@ -29,6 +29,8 @@
 #define WEB_SERVICE_RETRY_MS 2000
 #define WEB_SERVICE_HEADER_MAX 256
 #define WEB_SERVICE_BASIC_EXPECTED_MAX 320
+#define WEB_SERVICE_ROUTE_COUNT 13U
+#define WEB_SERVICE_MIN_URI_HANDLERS (WEB_SERVICE_ROUTE_COUNT + 2U)
 
 typedef struct {
     bool valid;
@@ -735,98 +737,25 @@ static esp_err_t control_consumer_post_handler(httpd_req_t *req)
 
 static esp_err_t register_routes(httpd_handle_t server)
 {
-    const httpd_uri_t health_get = {
-        .uri = "/api/v1/health",
-        .method = HTTP_GET,
-        .handler = health_get_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t state_get = {
-        .uri = "/api/v1/state",
-        .method = HTTP_GET,
-        .handler = state_get_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t layer_post = {
-        .uri = "/api/v1/control/layer",
-        .method = HTTP_POST,
-        .handler = control_layer_post_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t buzzer_post = {
-        .uri = "/api/v1/control/buzzer",
-        .method = HTTP_POST,
-        .handler = control_buzzer_post_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t consumer_post = {
-        .uri = "/api/v1/control/consumer",
-        .method = HTTP_POST,
-        .handler = control_consumer_post_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t ota_get = {
-        .uri = "/api/v1/system/ota",
-        .method = HTTP_GET,
-        .handler = ota_get_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t ota_post = {
-        .uri = "/api/v1/system/ota",
-        .method = HTTP_POST,
-        .handler = ota_post_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t health_options = {
-        .uri = "/api/v1/health",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t state_options = {
-        .uri = "/api/v1/state",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t layer_options = {
-        .uri = "/api/v1/control/layer",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t buzzer_options = {
-        .uri = "/api/v1/control/buzzer",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t consumer_options = {
-        .uri = "/api/v1/control/consumer",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
-    };
-    const httpd_uri_t ota_options = {
-        .uri = "/api/v1/system/ota",
-        .method = HTTP_OPTIONS,
-        .handler = options_handler,
-        .user_ctx = NULL,
+    const httpd_uri_t routes[WEB_SERVICE_ROUTE_COUNT] = {
+        {.uri = "/api/v1/health", .method = HTTP_GET, .handler = health_get_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/state", .method = HTTP_GET, .handler = state_get_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/layer", .method = HTTP_POST, .handler = control_layer_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/buzzer", .method = HTTP_POST, .handler = control_buzzer_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/consumer", .method = HTTP_POST, .handler = control_consumer_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ota", .method = HTTP_GET, .handler = ota_get_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/health", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/state", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/layer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/buzzer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/control/consumer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/ota", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
     };
 
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_get), TAG, "register /health failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_get), TAG, "register /state failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_post), TAG, "register /control/layer failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_post), TAG, "register /control/buzzer failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_post), TAG, "register /control/consumer failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_get), TAG, "register /system/ota GET failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_post), TAG, "register /system/ota POST failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &health_options), TAG, "register /health options failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &state_options), TAG, "register /state options failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &layer_options), TAG, "register /control/layer options failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &buzzer_options), TAG, "register /control/buzzer options failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &consumer_options), TAG, "register /control/consumer options failed");
-    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ota_options), TAG, "register /system/ota options failed");
+    for (size_t i = 0; i < WEB_SERVICE_ROUTE_COUNT; ++i) {
+        ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &routes[i]), TAG, "register route failed");
+    }
     return ESP_OK;
 }
 
@@ -843,8 +772,16 @@ static esp_err_t web_service_start_internal(void)
     }
 
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
+    uint16_t max_uri_handlers = (uint16_t)MACRO_WEB_SERVICE_MAX_URI_HANDLERS;
+    if (max_uri_handlers < WEB_SERVICE_MIN_URI_HANDLERS) {
+        ESP_LOGW(TAG,
+                 "web_service.max_uri_handlers=%u too low, auto-adjusted to %u",
+                 (unsigned)max_uri_handlers,
+                 (unsigned)WEB_SERVICE_MIN_URI_HANDLERS);
+        max_uri_handlers = (uint16_t)WEB_SERVICE_MIN_URI_HANDLERS;
+    }
     cfg.server_port = (uint16_t)MACRO_WEB_SERVICE_PORT;
-    cfg.max_uri_handlers = MACRO_WEB_SERVICE_MAX_URI_HANDLERS;
+    cfg.max_uri_handlers = max_uri_handlers;
     cfg.stack_size = MACRO_WEB_SERVICE_STACK_SIZE;
     cfg.recv_wait_timeout = MACRO_WEB_SERVICE_RECV_TIMEOUT_SEC;
     cfg.send_wait_timeout = MACRO_WEB_SERVICE_SEND_TIMEOUT_SEC;

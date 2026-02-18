@@ -74,6 +74,7 @@ Section: `web_service` in `config/keymap_config.yaml`
 - `control_enabled`
 
 These values are generated into `main/keymap_config.h` as `MACRO_WEB_SERVICE_*`.
+If `max_uri_handlers` is configured too low, runtime now auto-adjusts it to a safe minimum and logs a warning.
 
 ## 6) Extension Interface
 `web_service.h` exposes a control callback interface:

@@ -304,7 +304,7 @@ web_service:
   # Local HTTP port for web service (captive portal keeps using port 80).
   port: 8080
   # Number of URI handlers reserved in the HTTP server.
-  max_uri_handlers: 12
+  max_uri_handlers: 16
   # Task stack size for ESP-IDF HTTPD worker.
   stack_size: 6144
   # HTTP receive timeout for request body reads.

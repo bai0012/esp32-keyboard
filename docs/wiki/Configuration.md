@@ -133,7 +133,7 @@ Each row below is a concrete key path in `config/keymap_config.yaml`.
 | `home_assistant.control.entity_id` | `'light.desk_lamp'` | Target entity sent as `{\"entity_id\":\"...\"}` service payload. |
 | `web_service.enabled` | `true` | Enables local REST web service runtime. |
 | `web_service.port` | `8080` | HTTP port used by local web service (`captive portal remains on 80`). |
-| `web_service.max_uri_handlers` | `12` | Number of URI handlers reserved by HTTP server. |
+| `web_service.max_uri_handlers` | `16` | Number of URI handlers reserved by HTTP server (runtime auto-clamps to a safe minimum if set too low). |
 | `web_service.stack_size` | `6144` | HTTP server task stack size. |
 | `web_service.recv_timeout_sec` | `5` | Receive timeout for request body reads. |
 | `web_service.send_timeout_sec` | `5` | Send timeout for response writes. |

@@ -103,7 +103,7 @@ def render_header(cfg: dict[str, Any]) -> str:
     web_service = cfg.get("web_service", {
         "enabled": True,
         "port": 8080,
-        "max_uri_handlers": 12,
+        "max_uri_handlers": 16,
         "stack_size": 6144,
         "recv_timeout_sec": 5,
         "send_timeout_sec": 5,
@@ -311,7 +311,7 @@ def render_header(cfg: dict[str, Any]) -> str:
     out.append("")
     out.append(f"#define MACRO_WEB_SERVICE_ENABLED {c_bool(web_service.get('enabled', True))}")
     out.append(f"#define MACRO_WEB_SERVICE_PORT {as_int(web_service.get('port', 8080), 'web_service.port')}")
-    out.append(f"#define MACRO_WEB_SERVICE_MAX_URI_HANDLERS {as_int(web_service.get('max_uri_handlers', 12), 'web_service.max_uri_handlers')}")
+    out.append(f"#define MACRO_WEB_SERVICE_MAX_URI_HANDLERS {as_int(web_service.get('max_uri_handlers', 16), 'web_service.max_uri_handlers')}")
     out.append(f"#define MACRO_WEB_SERVICE_STACK_SIZE {as_int(web_service.get('stack_size', 6144), 'web_service.stack_size')}")
     out.append(f"#define MACRO_WEB_SERVICE_RECV_TIMEOUT_SEC {as_int(web_service.get('recv_timeout_sec', 5), 'web_service.recv_timeout_sec')}")
     out.append(f"#define MACRO_WEB_SERVICE_SEND_TIMEOUT_SEC {as_int(web_service.get('send_timeout_sec', 5), 'web_service.send_timeout_sec')}")
