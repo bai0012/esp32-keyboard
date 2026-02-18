@@ -52,6 +52,9 @@ Hardware reference is documented in `hardware_info.md`.
 - Local web service foundation:
   - versioned REST base (`/api/v1/*`)
   - runtime state endpoints for health and input/layer telemetry
+  - in-memory runtime log endpoint (`GET /api/v1/system/logs?limit=N`)
+    - log lines use boot-relative timestamps before SNTP sync
+    - log lines switch to real wall-clock timestamps after SNTP sync
   - optional control endpoints (layer/buzzer/consumer/system/ota) gated by config
   - keyboard mode and BLE pairing/bond-management endpoints
   - auto lifecycle: starts only when STA is connected and captive portal is inactive

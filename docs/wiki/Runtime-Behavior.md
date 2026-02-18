@@ -132,6 +132,9 @@ For buzzer behavior details and tuning guidance:
   - starts when STA is connected and captive portal is inactive
   - stops when captive portal is active or STA disconnects
 - Read-only API exports runtime telemetry (`/api/v1/health`, `/api/v1/state`).
+- Read-only API also exports buffered runtime logs (`/api/v1/system/logs?limit=N`).
+  - Before SNTP sync: log line prefixes use boot-relative milliseconds.
+  - After SNTP sync: log line prefixes use real local wall-clock time.
 - Optional write routes are gated by config (`web_service.control_enabled`).
 - Input loop continuously feeds layer/key/encoder/touch state into module cache.
 - OTA control/state routes are exposed under `/api/v1/system/ota` and in `/api/v1/state`.

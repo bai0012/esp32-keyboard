@@ -7,6 +7,7 @@ idf_component_register(
         "hid_usb_backend.c"
         "home_assistant.c"
         "keyboard_mode_store.c"
+        "log_store.c"
         "macropad_hid.c"
         "touch_slider.c"
         "web_service.c"

@@ -18,6 +18,7 @@
 
 #include "buzzer.h"
 #include "keymap_config.h"
+#include "log_store.h"
 #include "ota_manager.h"
 #include "sdkconfig.h"
 #include "wifi_portal.h"
@@ -29,7 +30,10 @@
 #define WEB_SERVICE_RETRY_MS 2000
 #define WEB_SERVICE_HEADER_MAX 256
 #define WEB_SERVICE_BASIC_EXPECTED_MAX 320
-#define WEB_SERVICE_ROUTE_COUNT 20U
+#define WEB_SERVICE_LOGS_DEFAULT_LIMIT 40U
+#define WEB_SERVICE_LOGS_MAX_LIMIT 80U
+#define WEB_SERVICE_LOGS_CHUNK_BUF 512U
+#define WEB_SERVICE_ROUTE_COUNT 22U
 #define WEB_SERVICE_MIN_URI_HANDLERS (WEB_SERVICE_ROUTE_COUNT + 2U)
 
 typedef struct {
@@ -475,6 +479,100 @@ static esp_err_t health_get_handler(httpd_req_t *req)
 static esp_err_t options_handler(httpd_req_t *req)
 {
     return http_send_options_ok(req);
+}
+
+static size_t logs_limit_from_query(httpd_req_t *req)
+{
+    if (req == NULL) {
+        return WEB_SERVICE_LOGS_DEFAULT_LIMIT;
+    }
+
+    char query[64] = {0};
+    const size_t query_len = httpd_req_get_url_query_len(req);
+    if (query_len == 0U || query_len >= sizeof(query)) {
+        return WEB_SERVICE_LOGS_DEFAULT_LIMIT;
+    }
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK) {
+        return WEB_SERVICE_LOGS_DEFAULT_LIMIT;
+    }
+
+    char value[16] = {0};
+    if (httpd_query_key_value(query, "limit", value, sizeof(value)) != ESP_OK) {
+        return WEB_SERVICE_LOGS_DEFAULT_LIMIT;
+    }
+
+    char *end = NULL;
+    long parsed = strtol(value, &end, 10);
+    if (end == value || *end != '\0' || parsed <= 0L) {
+        return WEB_SERVICE_LOGS_DEFAULT_LIMIT;
+    }
+    if (parsed > (long)WEB_SERVICE_LOGS_MAX_LIMIT) {
+        parsed = (long)WEB_SERVICE_LOGS_MAX_LIMIT;
+    }
+    return (size_t)parsed;
+}
+
+static esp_err_t logs_get_handler(httpd_req_t *req)
+{
+    esp_err_t auth = web_auth_guard(req);
+    if (auth != ESP_OK) {
+        return auth;
+    }
+
+    const size_t limit = logs_limit_from_query(req);
+    log_store_entry_t *entries = calloc(limit, sizeof(log_store_entry_t));
+    if (entries == NULL) {
+        return http_send_json(req, "500 Internal Server Error", "{\"ok\":false,\"error\":\"oom\"}");
+    }
+    const size_t count = log_store_copy_recent(entries, limit, limit);
+    const bool time_synced = log_store_is_time_synced();
+
+    httpd_resp_set_status(req, "200 OK");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    if (MACRO_WEB_SERVICE_CORS_ENABLED) {
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type,Authorization,X-API-Key");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    }
+
+    char chunk[WEB_SERVICE_LOGS_CHUNK_BUF] = {0};
+    int n = snprintf(chunk,
+                     sizeof(chunk),
+                     "{\"ok\":true,\"count\":%u,\"time_synced\":%s,\"entries\":[",
+                     (unsigned)count,
+                     time_synced ? "true" : "false");
+    if (n <= 0 || (size_t)n >= sizeof(chunk) || httpd_resp_send_chunk(req, chunk, (ssize_t)strlen(chunk)) != ESP_OK) {
+        free(entries);
+        return ESP_FAIL;
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        char escaped[(sizeof(entries[i].line) * 2U) + 8U] = {0};
+        json_escape_copy(escaped, sizeof(escaped), entries[i].line);
+
+        n = snprintf(chunk,
+                     sizeof(chunk),
+                     "%s{\"id\":%" PRIu32 ",\"line\":\"%s\"}",
+                     (i == 0U) ? "" : ",",
+                     entries[i].id,
+                     escaped);
+        if (n <= 0 || (size_t)n >= sizeof(chunk) || httpd_resp_send_chunk(req, chunk, (ssize_t)strlen(chunk)) != ESP_OK) {
+            free(entries);
+            return ESP_FAIL;
+        }
+    }
+
+    free(entries);
+    if (httpd_resp_send_chunk(req, "]}", 2) != ESP_OK) {
+        return ESP_FAIL;
+    }
+    if (httpd_resp_send_chunk(req, NULL, 0) != ESP_OK) {
+        return ESP_FAIL;
+    }
+
+    web_service_mark_user_activity();
+    return ESP_OK;
 }
 
 static esp_err_t state_get_handler(httpd_req_t *req)
@@ -969,6 +1067,7 @@ static esp_err_t register_routes(httpd_handle_t server)
         {.uri = "/api/v1/control/consumer", .method = HTTP_POST, .handler = control_consumer_post_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_GET, .handler = ota_get_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/logs", .method = HTTP_GET, .handler = logs_get_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_GET, .handler = keyboard_mode_get_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_POST, .handler = keyboard_mode_post_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ble/pair", .method = HTTP_POST, .handler = ble_pair_post_handler, .user_ctx = NULL},
@@ -979,6 +1078,7 @@ static esp_err_t register_routes(httpd_handle_t server)
         {.uri = "/api/v1/control/buzzer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/control/consumer", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ota", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
+        {.uri = "/api/v1/system/logs", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/keyboard_mode", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ble/pair", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},
         {.uri = "/api/v1/system/ble/clear_bond", .method = HTTP_OPTIONS, .handler = options_handler, .user_ctx = NULL},

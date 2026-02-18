@@ -26,6 +26,7 @@
 #include "buzzer.h"
 #include "hid_transport.h"
 #include "home_assistant.h"
+#include "log_store.h"
 #include "oled.h"
 #include "oled_animation_assets.h"
 #include "ota_manager.h"
@@ -86,6 +87,7 @@ static bool debounce_update(debounce_state_t *state,
                             bool raw_pressed,
                             TickType_t now,
                             TickType_t debounce_ticks);
+static void sntp_time_sync_notification_cb(struct timeval *tv);
 
 static inline bool cdc_log_ready(void)
 {
@@ -339,10 +341,18 @@ static void sntp_ip_event_handler(void *arg,
             APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
             esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
             esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
+            esp_sntp_set_time_sync_notification_cb(sntp_time_sync_notification_cb);
             esp_sntp_init();
             s_sntp_started = true;
         }
     }
+}
+
+static void sntp_time_sync_notification_cb(struct timeval *tv)
+{
+    (void)tv;
+    log_store_mark_time_synced();
+    APP_LOGI("SNTP time synchronized");
 }
 
 static esp_err_t register_sntp_handler(void)
@@ -877,6 +887,7 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK(log_store_init());
 
     s_last_user_activity_tick = xTaskGetTickCount();
 

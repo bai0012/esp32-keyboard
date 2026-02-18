@@ -251,6 +251,10 @@ Behavior/tuning reference:
   - keyboard mode and BLE transport status fields.
 - `GET /api/v1/system/keyboard_mode`
   - Returns current mode and BLE pairing/link status.
+- `GET /api/v1/system/logs?limit=<N>`
+  - Returns recent runtime log entries from RAM ring buffer.
+  - `limit` optional, `1..80`, default `40`.
+  - Log lines use boot-relative timestamps before SNTP sync, then real local time after sync.
 - `GET /api/v1/system/ota`
   - OTA manager state/status snapshot.
   - Includes download progress fields:

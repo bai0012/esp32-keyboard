@@ -45,6 +45,16 @@ Base prefix: `/api/v1`
       - `ble_connected`, `ble_bonded`, `ble_pairing_active`, `ble_pairing_remaining_ms`, `ble_peer_addr`
 - `GET /api/v1/system/keyboard_mode`
   - Returns focused keyboard-mode/BLE status payload.
+- `GET /api/v1/system/logs`
+  - Returns recent runtime logs collected in a RAM ring buffer.
+  - Query string:
+    - `limit` optional (`1..80`, default `40`)
+  - Response fields:
+    - `time_synced`: `false` before SNTP time is valid, `true` after sync
+    - `entries[]`: `{id,line}` records in chronological order
+  - Timestamp behavior in each line:
+    - before sync: boot-relative (`+[ms]`)
+    - after sync: real local time (`YYYY-MM-DD HH:MM:SS`)
 - `GET /api/v1/system/ota`
   - Returns OTA manager state/status snapshot.
 
@@ -140,8 +150,9 @@ For production-grade control exposure in future revisions, add:
 1. Device connects to Wi-Fi STA.
 2. Confirm `GET /api/v1/health` responds on configured port.
 3. Confirm `GET /api/v1/state` updates after key/encoder/touch activity.
-4. If `control_enabled=true`, verify:
+4. Confirm `GET /api/v1/system/logs?limit=20` returns recent logs with expected timestamp mode.
+5. If `control_enabled=true`, verify:
    - layer switch via `POST /control/layer`
    - buzzer on/off via `POST /control/buzzer`
-5. Enter captive portal mode and confirm web service stops automatically.
-6. Trigger OTA with `POST /api/v1/system/ota` and verify state transitions in `/state`.
+6. Enter captive portal mode and confirm web service stops automatically.
+7. Trigger OTA with `POST /api/v1/system/ota` and verify state transitions in `/state`.
