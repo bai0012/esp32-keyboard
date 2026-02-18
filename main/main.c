@@ -53,6 +53,7 @@
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
 #define BOOT_ANIMATION_MAX_FRAME_MS 1000
 #define HA_DISPLAY_STALE_MS 120000U
+#define BLE_PAIRING_TAP_COUNT 7
 
 typedef struct {
     bool stable_level;
@@ -602,6 +603,21 @@ static void input_task(void *arg)
                              target_mode == HID_MODE_USB ? "USB" : "BLE");
                 } else {
                     APP_LOGI("Keyboard mode switch request failed: %s", esp_err_to_name(mode_err));
+                }
+            } else if (taps == (uint8_t)BLE_PAIRING_TAP_COUNT) {
+                s_encoder_single_pending = false;
+                if (hid_transport_get_mode() != HID_MODE_BLE) {
+                    APP_LOGI("BLE pairing tap ignored in USB mode");
+                } else {
+                    const esp_err_t pair_err =
+                        hid_transport_start_pairing_window((uint32_t)MACRO_BLUETOOTH_PAIRING_WINDOW_SEC * 1000U);
+                    if (pair_err == ESP_OK) {
+                        mark_user_activity(now);
+                        buzzer_play_keypress();
+                        APP_LOGI("BLE pairing window started via encoder tap x%u", (unsigned)taps);
+                    } else {
+                        APP_LOGI("BLE pairing start failed: %s", esp_err_to_name(pair_err));
+                    }
                 }
             } else if (MACRO_HA_CONTROL_ENABLED &&
                 taps == (uint8_t)MACRO_HA_CONTROL_TAP_COUNT) {

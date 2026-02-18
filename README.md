@@ -194,6 +194,7 @@ Security note:
   - 3 taps: switch to layer 2 (or cancel Wi-Fi provisioning when captive portal is active)
   - 4+ taps: switch to layer 3
   - `keyboard.mode.switch_tap_count` taps (default `5`): switch keyboard mode (`USB`<->`BLE`) and reboot
+  - 7 taps: start BLE pairing window (BLE mode only)
   - precedence order: OTA confirm > keyboard mode switch > HA control > buzzer toggle > normal layer tap behavior
   - OTA verify mode override:
     - while OTA is waiting confirmation, normal tap actions are suspended

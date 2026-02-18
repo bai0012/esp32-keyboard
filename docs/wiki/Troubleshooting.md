@@ -99,6 +99,7 @@
 ## 13) BLE Pairing Fails
 - Verify `MACROPAD_BLE_PASSKEY` in menuconfig matches host prompt.
 - Open pairing window explicitly:
+  - EC11 tap x7 in BLE mode
   - `POST /api/v1/system/ble/pair` with optional timeout.
 - If pairing is stuck with stale host data:
   - clear bond via `POST /api/v1/system/ble/clear_bond`

@@ -25,6 +25,8 @@
 - Keyboard mode switch:
   - `keyboard.mode.switch_tap_count` taps (default `5`) toggles `USB <-> BLE`
   - mode switch is persisted then applied by controlled reboot
+- BLE pairing shortcut:
+  - 7 taps starts BLE pairing window (BLE mode only)
 - OTA verify override:
   - when OTA is awaiting confirmation, normal multi-tap actions are suspended
   - required tap count is `ota.confirm_tap_count` (default `3`)
@@ -163,6 +165,7 @@ Details and route reference:
 - Tap precedence order:
   - OTA confirm
   - keyboard mode switch
+  - BLE pairing shortcut
   - Home Assistant control
   - buzzer toggle
   - normal layer/single-tap behavior

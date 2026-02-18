@@ -10,6 +10,7 @@
 ## 2) Runtime Mode Switching
 - Encoder multi-tap:
   - `keyboard.mode.switch_tap_count` (default `5`) toggles `USB <-> BLE`.
+  - `7` taps starts BLE pairing window (BLE mode only).
 - Web API:
   - `POST /api/v1/system/keyboard_mode` with `{"mode":"usb"}` or `{"mode":"ble"}`.
 - Apply model:
