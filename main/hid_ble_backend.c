@@ -73,7 +73,7 @@ static uint8_t s_adv_service_uuid16[2] = {0x12, 0x18};
 
 static esp_ble_adv_data_t s_adv_data = {
     .set_scan_rsp = false,
-    .include_name = true,
+    .include_name = false,
     .include_txpower = true,
     .min_interval = 0x0006,
     .max_interval = 0x0010,
