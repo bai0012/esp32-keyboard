@@ -39,6 +39,8 @@ Section in `config/keymap_config.yaml`:
 - `ota.confirm_timeout_sec`
 - `ota.self_check_duration_ms`
 - `ota.self_check_min_heap_bytes`
+  - interpreted as warning threshold for low-memory conditions during post-OTA self-check
+  - rollback decisions use an additional internal hard floor to avoid false rollbacks under temporary memory pressure
 
 Menuconfig (`MacroPad Configuration`):
 - `MACROPAD_OTA_DEFAULT_URL`

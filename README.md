@@ -66,6 +66,7 @@ Hardware reference is documented in `hardware_info.md`.
   - EC11 multi-tap confirmation (default: 3 taps) before finalizing update
   - post-confirm OLED banner auto-clears back to normal screen
   - configurable confirmation timeout with automatic rollback on timeout
+  - post-OTA self-check uses warning and hard-fail heap thresholds to reduce false rollback under transient low-memory conditions
 - Wi-Fi provisioning fallback:
   - AP + captive portal web UI when credentials are missing or STA boot connect fails
   - persisted STA credentials (stored in Wi-Fi flash/NVS)

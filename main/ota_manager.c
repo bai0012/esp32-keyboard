@@ -27,6 +27,7 @@
 #define OTA_PROGRESS_LOG_INTERVAL_MS 1000U
 #define OTA_PROGRESS_BAR_WIDTH 14U
 #define OTA_CONFIRM_BANNER_MS 1500U
+#define OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES 24576U
 
 typedef struct {
     bool initialized;
@@ -301,26 +302,43 @@ static void ota_enter_wait_confirm(TickType_t now)
 static bool ota_run_self_check(uint32_t *free_heap_out)
 {
     const uint32_t free_heap = (uint32_t)esp_get_free_heap_size();
+    const uint32_t min_free_heap = (uint32_t)esp_get_minimum_free_heap_size();
     const UBaseType_t task_count = uxTaskGetNumberOfTasks();
     if (free_heap_out != NULL) {
         *free_heap_out = free_heap;
     }
 
-    if (free_heap < (uint32_t)MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES) {
+    if (free_heap < OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES) {
         ESP_LOGE(TAG,
-                 "Self-check failed: free heap=%" PRIu32 " < min=%u",
+                 "Self-check failed: free heap=%" PRIu32 " < hard-min=%u (warn-min=%u, min-ever=%" PRIu32 ")",
                  free_heap,
-                 (unsigned)MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES);
+                 (unsigned)OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES,
+                 (unsigned)MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES,
+                 min_free_heap);
         return false;
     }
     if (task_count < 3U) {
-        ESP_LOGE(TAG, "Self-check failed: task_count=%u < 3", (unsigned)task_count);
+        ESP_LOGE(TAG,
+                 "Self-check failed: task_count=%u < 3 (free_heap=%" PRIu32 ", min-ever=%" PRIu32 ")",
+                 (unsigned)task_count,
+                 free_heap,
+                 min_free_heap);
         return false;
     }
 
+    if (free_heap < (uint32_t)MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES) {
+        ESP_LOGW(TAG,
+                 "Self-check warning: free heap=%" PRIu32 " < warn-min=%u (hard-min=%u, min-ever=%" PRIu32 ")",
+                 free_heap,
+                 (unsigned)MACRO_OTA_SELF_CHECK_MIN_HEAP_BYTES,
+                 (unsigned)OTA_SELF_CHECK_HARD_MIN_HEAP_BYTES,
+                 min_free_heap);
+    }
+
     ESP_LOGI(TAG,
-             "Self-check passed: free_heap=%" PRIu32 " task_count=%u",
+             "Self-check passed: free_heap=%" PRIu32 " min_ever=%" PRIu32 " task_count=%u",
              free_heap,
+             min_free_heap,
              (unsigned)task_count);
     return true;
 }
@@ -347,8 +365,15 @@ esp_err_t ota_manager_init(void)
     const esp_partition_t *running = esp_ota_get_running_partition();
     if (running != NULL) {
         esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
-        if (esp_ota_get_state_partition(running, &state) == ESP_OK &&
-            state == ESP_OTA_IMG_PENDING_VERIFY) {
+        const esp_err_t state_err = esp_ota_get_state_partition(running, &state);
+        if (state_err == ESP_OK) {
+            ESP_LOGI(TAG,
+                     "Running OTA image state=%d (0:new 1:pending_verify 2:valid 3:invalid 4:aborted 5:undefined)",
+                     (int)state);
+        } else {
+            ESP_LOGW(TAG, "esp_ota_get_state_partition failed: %s", esp_err_to_name(state_err));
+        }
+        if (state_err == ESP_OK && state == ESP_OTA_IMG_PENDING_VERIFY) {
             const TickType_t now = xTaskGetTickCount();
             s_ota.pending_verify = true;
             s_ota.state = OTA_MANAGER_STATE_SELF_CHECK_RUNNING;
