@@ -539,7 +539,7 @@ static esp_err_t logs_get_handler(httpd_req_t *req)
     char chunk[WEB_SERVICE_LOGS_CHUNK_BUF] = {0};
     int n = snprintf(chunk,
                      sizeof(chunk),
-                     "{\"ok\":true,\"count\":%u,\"time_synced\":%s,\"entries\":[",
+                     "{\n\"ok\":true,\n\"count\":%u,\n\"time_synced\":%s,\n\"entries\":[\n",
                      (unsigned)count,
                      time_synced ? "true" : "false");
     if (n <= 0 || (size_t)n >= sizeof(chunk) || httpd_resp_send_chunk(req, chunk, (ssize_t)strlen(chunk)) != ESP_OK) {
@@ -553,8 +553,8 @@ static esp_err_t logs_get_handler(httpd_req_t *req)
 
         n = snprintf(chunk,
                      sizeof(chunk),
-                     "%s{\"id\":%" PRIu32 ",\"line\":\"%s\"}",
-                     (i == 0U) ? "" : ",",
+                     "%s{\"id\":%" PRIu32 ",\"line\":\"%s\"}\n",
+                     (i == 0U) ? "" : ",\n",
                      entries[i].id,
                      escaped);
         if (n <= 0 || (size_t)n >= sizeof(chunk) || httpd_resp_send_chunk(req, chunk, (ssize_t)strlen(chunk)) != ESP_OK) {
@@ -564,7 +564,7 @@ static esp_err_t logs_get_handler(httpd_req_t *req)
     }
 
     free(entries);
-    if (httpd_resp_send_chunk(req, "]}", 2) != ESP_OK) {
+    if (httpd_resp_send_chunk(req, "]\n}\n", 4) != ESP_OK) {
         return ESP_FAIL;
     }
     if (httpd_resp_send_chunk(req, NULL, 0) != ESP_OK) {

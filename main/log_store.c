@@ -55,6 +55,19 @@ static void trim_log_message(char *line)
     }
 }
 
+static int log_store_prev_output(const char *fmt, ...)
+{
+    if (s_log_store.prev_vprintf == NULL || fmt == NULL) {
+        return 0;
+    }
+
+    va_list args;
+    va_start(args, fmt);
+    const int ret = s_log_store.prev_vprintf(fmt, args);
+    va_end(args);
+    return ret;
+}
+
 static void build_prefix(char *out, size_t out_size)
 {
     if (out == NULL || out_size == 0U) {
@@ -79,17 +92,12 @@ static void push_log_line(const char *line)
         return;
     }
 
-    char prefix[32] = {0};
-    char composed[LOG_STORE_LINE_MAX] = {0};
-    build_prefix(prefix, sizeof(prefix));
-    (void)snprintf(composed, sizeof(composed), "[%s] %s", prefix, line);
-
     if (s_log_store.lock != NULL) {
         (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
     }
     log_store_entry_t *dst = &s_log_store.entries[s_log_store.head];
     dst->id = ++s_log_store.next_id;
-    strlcpy(dst->line, composed, sizeof(dst->line));
+    strlcpy(dst->line, line, sizeof(dst->line));
 
     s_log_store.head = (s_log_store.head + 1U) % LOG_STORE_MAX_ENTRIES;
     if (s_log_store.count < LOG_STORE_MAX_ENTRIES) {
@@ -102,14 +110,6 @@ static void push_log_line(const char *line)
 
 static int log_store_vprintf(const char *fmt, va_list args)
 {
-    int ret = 0;
-    if (s_log_store.prev_vprintf != NULL) {
-        va_list out_args;
-        va_copy(out_args, args);
-        ret = s_log_store.prev_vprintf(fmt, out_args);
-        va_end(out_args);
-    }
-
     char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
     va_list format_args;
     va_copy(format_args, args);
@@ -117,10 +117,17 @@ static int log_store_vprintf(const char *fmt, va_list args)
     va_end(format_args);
 
     trim_log_message(formatted);
-    if (formatted[0] != '\0') {
-        push_log_line(formatted);
+    if (formatted[0] == '\0') {
+        return 0;
     }
-    return ret;
+
+    char prefix[32] = {0};
+    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 48U] = {0};
+    build_prefix(prefix, sizeof(prefix));
+    (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", prefix, formatted);
+
+    push_log_line(with_prefix);
+    return log_store_prev_output("%s\n", with_prefix);
 }
 
 esp_err_t log_store_init(void)
