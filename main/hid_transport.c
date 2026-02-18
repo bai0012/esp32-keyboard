@@ -43,6 +43,7 @@ esp_err_t hid_transport_init(void)
 
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.mode = default_mode();
+    ESP_LOGI(TAG, "keyboard mode default=%s", s_ctx.mode == HID_MODE_USB ? "usb" : "ble");
 
     if (MACRO_KEYBOARD_MODE_PERSIST) {
         keyboard_mode_t stored = KEYBOARD_MODE_USB;
@@ -50,8 +51,11 @@ esp_err_t hid_transport_init(void)
         const esp_err_t load_err = keyboard_mode_store_load(&stored, &stored_valid);
         if (load_err == ESP_OK && stored_valid) {
             s_ctx.mode = (stored == KEYBOARD_MODE_BLE) ? HID_MODE_BLE : HID_MODE_USB;
+            ESP_LOGI(TAG, "keyboard mode loaded from NVS=%s", s_ctx.mode == HID_MODE_USB ? "usb" : "ble");
         } else if (load_err != ESP_OK) {
             ESP_LOGW(TAG, "keyboard_mode_store_load failed: %s", esp_err_to_name(load_err));
+        } else {
+            ESP_LOGI(TAG, "keyboard mode NVS empty; using default");
         }
     }
 

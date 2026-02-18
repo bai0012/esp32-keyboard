@@ -340,7 +340,10 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     s_ble.passkey = passkey;
 
     esp_err_t err = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK &&
+        err != ESP_ERR_INVALID_STATE &&
+        err != ESP_ERR_NOT_FOUND &&
+        err != ESP_ERR_NOT_SUPPORTED) {
         return err;
     }
 
