@@ -30,6 +30,10 @@ typedef struct {
     uint32_t confirm_timeout_ms;
     uint32_t confirm_remaining_ms;
     uint32_t self_check_free_heap_bytes;
+    uint32_t download_total_bytes;
+    uint32_t download_read_bytes;
+    uint32_t download_elapsed_ms;
+    uint8_t download_percent;
     char current_url[192];
     char last_error[96];
 } ota_manager_status_t;

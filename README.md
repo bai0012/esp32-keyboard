@@ -49,9 +49,11 @@ Hardware reference is documented in `hardware_info.md`.
   - auto lifecycle: starts only when STA is connected and captive portal is inactive
 - OTA update workflow:
   - API-triggered firmware download (`/api/v1/system/ota`)
+  - incremental OTA reception progress (bytes + percent) exposed to logs, OLED, and REST state
   - rollback-aware first boot (`PENDING_VERIFY`)
   - automatic post-update self-check
   - EC11 multi-tap confirmation (default: 3 taps) before finalizing update
+  - post-confirm OLED banner auto-clears back to normal screen
   - configurable confirmation timeout with automatic rollback on timeout
 - Wi-Fi provisioning fallback:
   - AP + captive portal web UI when credentials are missing or STA boot connect fails
@@ -210,6 +212,7 @@ Security note:
   - OTA status endpoint:
     - `GET /api/v1/system/ota`
     - `/api/v1/state` also includes nested `ota` status object
+    - includes OTA reception progress: `download_total_bytes`, `download_read_bytes`, `download_elapsed_ms`, `download_percent`
   - service starts after Wi-Fi STA is connected and stops while captive portal is active
   - optional authentication (configured in menuconfig):
     - API key via `X-API-Key` header (`MACROPAD_WEB_API_KEY`)

@@ -12,6 +12,7 @@
 Key responsibilities:
 - Start OTA download (HTTPS) from runtime API call.
 - Track OTA state for REST and OLED.
+- Track OTA reception progress (`received bytes`, `total bytes`, `percent`, `elapsed`).
 - Detect `ESP_OTA_IMG_PENDING_VERIFY` on first boot after OTA.
 - Run self-check, then wait for EC11 confirmation.
 - Confirm image (`esp_ota_mark_app_valid_cancel_rollback`) or rollback on timeout (`esp_ota_mark_app_invalid_rollback_and_reboot`).
@@ -19,14 +20,15 @@ Key responsibilities:
 ## 3) Runtime Flow
 1. Trigger OTA:
    - `POST /api/v1/system/ota` (optional JSON body URL override).
-2. Firmware downloads with `esp_https_ota`.
+2. Firmware downloads using incremental OTA (`begin/perform/finish`) with continuous progress updates.
 3. On success, device reboots into new image.
 4. New image starts in `PENDING_VERIFY` state (rollback enabled).
 5. `ota_manager` runs self-check for `ota.self_check_duration_ms`.
 6. OLED shows verification prompt.
 7. User presses EC11 N times (`ota.confirm_tap_count`, default `3`) to confirm.
 8. If confirmed, rollback is canceled and firmware is finalized.
-9. If timeout expires (`ota.confirm_timeout_sec`, non-zero), device rolls back automatically.
+9. OLED shows a short "OTA confirmed" banner, then returns to normal scene automatically.
+10. If timeout expires (`ota.confirm_timeout_sec`, non-zero), device rolls back automatically.
 
 ## 4) Configuration
 Section in `config/keymap_config.yaml`:
@@ -46,7 +48,7 @@ Menuconfig (`MacroPad Configuration`):
 Base: `/api/v1`
 
 - `GET /system/ota`
-  - Returns OTA status state machine fields.
+  - Returns OTA status state machine fields and download progress fields.
 - `POST /system/ota`
   - Body (optional): `{"url":"https://example/fw.bin"}` or `{"url":"http://example/fw.bin"}`
   - If body URL is omitted, `CONFIG_MACROPAD_OTA_DEFAULT_URL` is used.
@@ -65,6 +67,7 @@ During OTA states, OLED overlay is shown:
 - self-check running
 - waiting confirmation
 - download in progress
+- download progress bar (`[####....] NN%`) + byte counters/rate
 - download failure
 - rollback/confirm terminal states
 
@@ -82,3 +85,5 @@ During OTA states, OLED overlay is shown:
 4. Press EC11 `ota.confirm_tap_count` times and verify confirm success.
 5. Repeat OTA test but do not confirm; verify rollback occurs after timeout.
 6. Verify `GET /api/v1/system/ota` and `/api/v1/state` reflect transitions.
+7. During download, verify logs show progress updates (bytes/percent).
+8. After EC11 confirm, verify OLED leaves "OTA confirmed" overlay automatically.

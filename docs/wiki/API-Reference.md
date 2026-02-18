@@ -213,6 +213,11 @@ Behavior/tuning reference:
   - active layer, buzzer state, idle age, latest key/encoder/swipe telemetry, OTA status.
 - `GET /api/v1/system/ota`
   - OTA manager state/status snapshot.
+  - Includes download progress fields:
+    - `download_total_bytes`
+    - `download_read_bytes`
+    - `download_elapsed_ms`
+    - `download_percent`
 - `POST /api/v1/control/layer` with `{"layer":2}`
 - `POST /api/v1/control/buzzer` with `{"enabled":true}`
 - `POST /api/v1/control/consumer` with `{"usage":233}`
@@ -243,6 +248,8 @@ Behavior/tuning reference:
 
 ### `void ota_manager_get_status(ota_manager_status_t *out_status);`
 - Returns OTA state snapshot for REST/OLED integration.
+- Includes confirmation timing fields and OTA download progress counters.
 
 ### `bool ota_manager_get_oled_lines(...);`
 - Returns OTA overlay text lines when OTA state should override normal display scene.
+- Download state exports a text progress bar line plus byte/rate lines for OLED.

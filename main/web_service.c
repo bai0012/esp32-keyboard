@@ -404,6 +404,8 @@ static int build_ota_status_json(char *dst, size_t dst_size)
                     "\"confirm_tap_count\":%u,\"self_check_duration_ms\":%" PRIu32 ","
                     "\"self_check_elapsed_ms\":%" PRIu32 ",\"confirm_timeout_ms\":%" PRIu32 ","
                     "\"confirm_remaining_ms\":%" PRIu32 ",\"self_check_free_heap\":%" PRIu32 ","
+                    "\"download_total_bytes\":%" PRIu32 ",\"download_read_bytes\":%" PRIu32 ","
+                    "\"download_elapsed_ms\":%" PRIu32 ",\"download_percent\":%u,"
                     "\"current_url\":\"%s\",\"last_error\":\"%s\"}",
                     ota.enabled ? "true" : "false",
                     ota_manager_state_name(ota.state),
@@ -414,6 +416,10 @@ static int build_ota_status_json(char *dst, size_t dst_size)
                     ota.confirm_timeout_ms,
                     ota.confirm_remaining_ms,
                     ota.self_check_free_heap_bytes,
+                    ota.download_total_bytes,
+                    ota.download_read_bytes,
+                    ota.download_elapsed_ms,
+                    (unsigned)ota.download_percent,
                     ota_url_json,
                     ota_error_json);
 }
@@ -458,7 +464,7 @@ static esp_err_t state_get_handler(httpd_req_t *req)
     }
 
     char json[WEB_SERVICE_JSON_BUF] = {0};
-    char ota_json[384] = {0};
+    char ota_json[512] = {0};
     char key_name_json[96] = {0};
 
     web_service_lock();
@@ -524,7 +530,7 @@ static esp_err_t ota_get_handler(httpd_req_t *req)
         return auth;
     }
 
-    char ota_json[384] = {0};
+    char ota_json[512] = {0};
     char json[WEB_SERVICE_JSON_BUF] = {0};
     const int ota_n = build_ota_status_json(ota_json, sizeof(ota_json));
     if (ota_n <= 0 || (size_t)ota_n >= sizeof(ota_json)) {

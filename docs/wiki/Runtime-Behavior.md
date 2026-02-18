@@ -133,11 +133,13 @@ Details and route reference:
 
 ## 12) OTA Verification Flow
 - OTA update is started by web API (`POST /api/v1/system/ota`).
+- OTA download runs incrementally and reports progress to logs/OLED/REST.
 - Download success reboots into new image.
 - New image enters `PENDING_VERIFY` state (rollback enabled).
 - Device runs auto self-check for `ota.self_check_duration_ms`.
 - OLED displays confirmation prompt.
 - If EC11 tap-count confirmation is received in time:
   - `esp_ota_mark_app_valid_cancel_rollback()` is called.
+  - temporary "OTA confirmed" banner is shown, then OLED returns to normal scene automatically.
 - If timeout expires (`ota.confirm_timeout_sec > 0`):
   - `esp_ota_mark_app_invalid_rollback_and_reboot()` is called.

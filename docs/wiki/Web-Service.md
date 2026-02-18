@@ -89,6 +89,11 @@ This keeps the web module decoupled from input/HID logic and supports future cus
 - OTA status is surfaced in both:
   - `GET /api/v1/system/ota`
   - `GET /api/v1/state` (`ota` object)
+- OTA status now includes transfer progress fields:
+  - `download_total_bytes`
+  - `download_read_bytes`
+  - `download_elapsed_ms`
+  - `download_percent`
 - Post-update confirmation itself is intentionally local-only (EC11 multi-tap), not web-confirmed.
 
 ## 8) Security Notes
