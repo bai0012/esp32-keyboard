@@ -25,7 +25,8 @@ Primary source:
   - submit SSID + password
   - trigger STA connect from selected network
 - On `IP_EVENT_STA_GOT_IP`, portal auto-stops and firmware returns to STA mode.
-- On `IP_EVENT_STA_GOT_IP` while portal is active, firmware performs a controlled reboot to enter a clean STA-only runtime.
+- On `IP_EVENT_STA_GOT_IP` from a portal-submitted credential flow, firmware performs a controlled reboot to enter a clean STA-only runtime.
+- Normal boot-time STA connect using stored/menuconfig credentials does not trigger this reboot path.
 - Boot connect is non-blocking for app startup, so boot animation/input tasks are not held by connect timeout waits.
 
 ## 4) OLED Behavior During Provisioning

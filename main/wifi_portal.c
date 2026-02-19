@@ -69,6 +69,7 @@ static bool s_timeout_requested;
 static bool s_cancelled;
 static bool s_timed_out;
 static bool s_using_saved_credentials;
+static bool s_connect_from_portal;
 static uint8_t s_retry_count;
 static bool s_boot_connect_in_progress;
 static bool s_boot_saved_fallback_pending;
@@ -465,6 +466,7 @@ static esp_err_t start_sta_connect(wifi_config_t *cfg, bool from_portal)
     s_stop_portal_requested = false;
     s_cancelled = false;
     s_timed_out = false;
+    s_connect_from_portal = from_portal;
     s_sta_attempt_start_tick = xTaskGetTickCount();
     strlcpy(s_selected_ssid, (const char *)cfg->sta.ssid, sizeof(s_selected_ssid));
     unlock_state();
@@ -513,6 +515,7 @@ static esp_err_t portal_stop_internal(bool cancelled, bool timed_out)
     s_timeout_requested = false;
     s_cancelled = cancelled;
     s_timed_out = timed_out;
+    s_connect_from_portal = false;
     unlock_state();
 
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "set sta mode failed");
@@ -917,10 +920,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         s_boot_saved_fallback_pending = false;
         s_boot_saved_fallback_attempted = false;
         strlcpy(s_sta_ip, ip_buf, sizeof(s_sta_ip));
-        if (s_portal_active) {
+        if (s_portal_active && s_connect_from_portal) {
             s_reboot_requested = true;
             s_reboot_request_tick = xTaskGetTickCount();
+            ESP_LOGW(TAG, "Portal provisioning succeeded; scheduling clean reboot");
+        } else if (s_portal_active) {
+            s_stop_portal_requested = true;
+            ESP_LOGW(TAG, "Portal active but connection not from portal; stopping portal without reboot");
         }
+        s_connect_from_portal = false;
         unlock_state();
 
         xEventGroupSetBits(s_wifi_evt_group, WIFI_STA_CONNECTED_BIT);
@@ -990,6 +998,7 @@ esp_err_t wifi_portal_start(void)
     s_boot_connect_in_progress = false;
     s_boot_saved_fallback_pending = false;
     s_boot_saved_fallback_attempted = false;
+    s_connect_from_portal = false;
     memset(&s_boot_saved_cfg, 0, sizeof(s_boot_saved_cfg));
     unlock_state();
 
