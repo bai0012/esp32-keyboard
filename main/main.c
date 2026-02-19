@@ -88,7 +88,6 @@ static bool debounce_update(debounce_state_t *state,
                             TickType_t now,
                             TickType_t debounce_ticks);
 static void sntp_time_sync_notification_cb(struct timeval *tv);
-static void halt_on_init_error(const char *step, esp_err_t err);
 
 static inline bool cdc_log_ready(void)
 {
@@ -174,17 +173,6 @@ static void send_consumer_report_with_activity(uint16_t usage)
         mark_user_activity(xTaskGetTickCount());
     }
     hid_transport_send_consumer_report(usage);
-}
-
-static void halt_on_init_error(const char *step, esp_err_t err)
-{
-    ESP_LOGE(TAG,
-             "Initialization failed at %s: %s; halting for recovery/debug",
-             step ? step : "(unknown)",
-             esp_err_to_name(err));
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
 }
 
 static void notify_touch_swipe(uint8_t layer_index, bool left_to_right, uint16_t usage)
@@ -903,56 +891,65 @@ void app_main(void)
 
     s_last_user_activity_tick = xTaskGetTickCount();
 
+    bool oled_ready = false;
+    bool wifi_portal_ready = false;
+    bool web_ready = false;
+
     // Bring up USB transport first so CDC is available even if later init fails.
     esp_err_t err = hid_transport_init();
     if (err != ESP_OK) {
-        halt_on_init_error("hid_transport_init", err);
+        ESP_LOGE(TAG, "hid_transport_init failed: %s", esp_err_to_name(err));
     }
 
     err = init_keys();
     if (err != ESP_OK) {
-        halt_on_init_error("init_keys", err);
+        ESP_LOGE(TAG, "init_keys failed: %s", esp_err_to_name(err));
     }
     err = touch_slider_init();
     if (err != ESP_OK) {
-        halt_on_init_error("touch_slider_init", err);
+        ESP_LOGE(TAG, "touch_slider_init failed: %s", esp_err_to_name(err));
     }
     err = init_encoder();
     if (err != ESP_OK) {
-        halt_on_init_error("init_encoder", err);
+        ESP_LOGE(TAG, "init_encoder failed: %s", esp_err_to_name(err));
     }
     err = init_led_strip();
     if (err != ESP_OK) {
-        halt_on_init_error("init_led_strip", err);
+        ESP_LOGE(TAG, "init_led_strip failed: %s", esp_err_to_name(err));
     }
     err = buzzer_init();
     if (err != ESP_OK) {
-        halt_on_init_error("buzzer_init", err);
+        ESP_LOGE(TAG, "buzzer_init failed: %s", esp_err_to_name(err));
     }
     buzzer_play_startup();
     err = oled_init();
-    if (err != ESP_OK) {
-        halt_on_init_error("oled_init", err);
+    oled_ready = (err == ESP_OK);
+    if (!oled_ready) {
+        ESP_LOGE(TAG, "oled_init failed: %s", esp_err_to_name(err));
     }
     err = ota_manager_init();
     if (err != ESP_OK) {
-        halt_on_init_error("ota_manager_init", err);
+        ESP_LOGE(TAG, "ota_manager_init failed: %s", esp_err_to_name(err));
     }
-    err = oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT);
-    if (err != ESP_OK) {
-        halt_on_init_error("oled_set_brightness_percent", err);
+    if (oled_ready) {
+        err = oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "oled_set_brightness_percent failed: %s", esp_err_to_name(err));
+        }
+        play_boot_animation();
     }
-    play_boot_animation();
     err = wifi_portal_init();
-    if (err != ESP_OK) {
-        halt_on_init_error("wifi_portal_init", err);
+    wifi_portal_ready = (err == ESP_OK);
+    if (!wifi_portal_ready) {
+        ESP_LOGE(TAG, "wifi_portal_init failed: %s", esp_err_to_name(err));
     }
     err = web_service_init();
-    if (err != ESP_OK) {
-        halt_on_init_error("web_service_init", err);
+    web_ready = (err == ESP_OK);
+    if (!web_ready) {
+        ESP_LOGE(TAG, "web_service_init failed: %s", esp_err_to_name(err));
     }
-    web_service_set_active_layer(s_active_layer);
-    {
+    if (web_ready) {
+        web_service_set_active_layer(s_active_layer);
         const web_service_control_if_t control_if = {
             .set_layer = web_control_set_layer,
             .set_buzzer = web_control_set_buzzer,
@@ -963,16 +960,18 @@ void app_main(void)
         };
         err = web_service_register_control(&control_if);
         if (err != ESP_OK) {
-            halt_on_init_error("web_service_register_control", err);
+            ESP_LOGE(TAG, "web_service_register_control failed: %s", esp_err_to_name(err));
         }
     }
     err = register_sntp_handler();
     if (err != ESP_OK) {
-        halt_on_init_error("register_sntp_handler", err);
+        ESP_LOGE(TAG, "register_sntp_handler failed: %s", esp_err_to_name(err));
     }
-    err = wifi_portal_start();
-    if (err != ESP_OK) {
-        halt_on_init_error("wifi_portal_start", err);
+    if (wifi_portal_ready) {
+        err = wifi_portal_start();
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "wifi_portal_start failed: %s", esp_err_to_name(err));
+        }
     }
     {
         const esp_err_t ha_err = home_assistant_init();

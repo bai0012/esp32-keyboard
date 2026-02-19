@@ -141,6 +141,7 @@ static inline const macro_action_config_t *active_key_cfg(size_t idx, uint8_t ac
 
 esp_err_t macropad_usb_init_mode(bool enable_hid_keyboard)
 {
+    esp_err_t err = ESP_OK;
     tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
     tusb_cfg.descriptor.device = &s_device_descriptor;
     tusb_cfg.descriptor.full_speed_config = enable_hid_keyboard
@@ -153,15 +154,30 @@ esp_err_t macropad_usb_init_mode(bool enable_hid_keyboard)
         ? s_configuration_descriptor_cdc_hid
         : s_configuration_descriptor_cdc_only;
 #endif
-    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+    err = tinyusb_driver_install(&tusb_cfg);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "tinyusb_driver_install failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    if (err == ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "TinyUSB driver already installed, continuing");
+    }
     s_hid_enabled = enable_hid_keyboard;
 
 #if CONFIG_TINYUSB_CDC_ENABLED
     tinyusb_config_cdcacm_t acm_cfg = {
         .cdc_port = TINYUSB_CDC_ACM_0,
     };
-    ESP_ERROR_CHECK(tinyusb_cdcacm_init(&acm_cfg));
-    ESP_ERROR_CHECK(tinyusb_console_init(TINYUSB_CDC_ACM_0));
+    err = tinyusb_cdcacm_init(&acm_cfg);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "tinyusb_cdcacm_init failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = tinyusb_console_init(TINYUSB_CDC_ACM_0);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "tinyusb_console_init failed: %s", esp_err_to_name(err));
+        return err;
+    }
 #endif
 
     ESP_LOGI(TAG,
