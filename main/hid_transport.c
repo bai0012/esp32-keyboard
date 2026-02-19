@@ -69,10 +69,16 @@ esp_err_t hid_transport_init(void)
 
     bool ble_ready = false;
     if (s_ctx.mode == HID_MODE_BLE && ble_feature_enabled()) {
-        ESP_LOGI(TAG,
-                 "BLE init config: name=\"%s\" passkey=%" PRIu32,
-                 CONFIG_MACROPAD_BLE_DEVICE_NAME,
-                 (uint32_t)CONFIG_MACROPAD_BLE_PASSKEY);
+        if ((uint32_t)CONFIG_MACROPAD_BLE_PASSKEY == 0U) {
+            ESP_LOGI(TAG,
+                     "BLE init config: name=\"%s\" passkey=random(0 configured)",
+                     CONFIG_MACROPAD_BLE_DEVICE_NAME);
+        } else {
+            ESP_LOGI(TAG,
+                     "BLE init config: name=\"%s\" passkey=%" PRIu32,
+                     CONFIG_MACROPAD_BLE_DEVICE_NAME,
+                     (uint32_t)CONFIG_MACROPAD_BLE_PASSKEY);
+        }
         const esp_err_t ble_err =
             hid_ble_backend_init(CONFIG_MACROPAD_BLE_DEVICE_NAME, CONFIG_MACROPAD_BLE_PASSKEY);
         if (ble_err == ESP_OK) {

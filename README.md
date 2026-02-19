@@ -187,7 +187,7 @@ Set via `idf.py menuconfig` under `MacroPad Configuration`:
 - `MACROPAD_OTA_DEFAULT_URL` (optional default OTA URL used by API-triggered OTA when request URL is omitted)
 - `MACROPAD_OTA_HTTP_TIMEOUT_MS` (OTA HTTP timeout)
 - `MACROPAD_BLE_DEVICE_NAME` (BLE HID advertised name)
-- `MACROPAD_BLE_PASSKEY` (static BLE pairing passkey)
+- `MACROPAD_BLE_PASSKEY` (BLE pairing passkey; set `0` for random 6-digit passkey per pairing window)
 - `MACROPAD_BLE_TX_POWER` (reserved BLE TX power preference)
 
 Connection behavior:
@@ -288,11 +288,12 @@ Security note:
   - BLE mode keeps USB CDC for logs/monitor, but USB HID keyboard is disabled
 - BLE pairing:
   - compatibility-first bonding policy (`ESP_LE_AUTH_BOND` default)
-  - static passkey remains configurable in `menuconfig` for stricter policies
+  - passkey remains configurable in `menuconfig`; set `MACROPAD_BLE_PASSKEY=0` for random passkey mode
   - single-bond policy (new bond replaces old one)
   - pairing can be started via EC11/API
   - BLE OLED overlay is shown only during transitions/errors (advertising/authenticating/pairing/auth-fail)
   - after BLE auth+connect is stable, OLED returns to normal pages (clock/status)
+  - BLE now advertises on boot in BLE mode even when already bonded, so hosts can reconnect after reboot
 
 ## OLED Display Details
 ### 1) Display content

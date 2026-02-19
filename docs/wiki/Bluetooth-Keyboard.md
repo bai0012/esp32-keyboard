@@ -28,7 +28,8 @@ Precedence in tap dispatcher:
 ## 3) Pairing and Bonding
 - Security model:
   - bond-first compatibility mode (default): `auth_req=ESP_LE_AUTH_BOND`
-  - static passkey remains configured in `menuconfig` for future stricter pairing policy
+  - passkey is configured in `menuconfig` (`MACROPAD_BLE_PASSKEY`)
+  - set `MACROPAD_BLE_PASSKEY=0` to enable random 6-digit passkey per pairing window
 - Pairing window:
   - starts automatically in BLE mode when no bond exists
   - can be started manually via API: `POST /api/v1/system/ble/pair`
@@ -52,6 +53,7 @@ When BLE mode is active, OLED transport overlay is event-driven and can show:
 Stable behavior:
 - once BLE is fully authenticated and connected, the BLE overlay auto-hides
 - OLED returns to normal pages (clock/status) instead of staying on BLE status forever
+- BLE mode starts advertising on boot even with an existing bond, allowing previously paired hosts to reconnect
 
 Overlay priority remains below OTA and Wi-Fi portal overlays.
 
@@ -69,7 +71,7 @@ Overlay priority remains below OTA and Wi-Fi portal overlays.
 
 ### menuconfig (`main/Kconfig.projbuild`)
 - `MACROPAD_BLE_DEVICE_NAME`
-- `MACROPAD_BLE_PASSKEY`
+- `MACROPAD_BLE_PASSKEY` (`0` = random passkey mode)
 - `MACROPAD_BLE_TX_POWER` (reserved for future tuning)
 
 ## 6) REST State Fields

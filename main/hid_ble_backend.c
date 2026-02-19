@@ -19,6 +19,8 @@
 #include "esp_hidd.h"
 #include "esp_hidd_gatts.h"
 #include "esp_log.h"
+#include "esp_random.h"
+#include "esp_system.h"
 
 #define TAG "HID_BLE"
 
@@ -40,6 +42,7 @@ typedef struct {
     bool pairing_window_active;
     TickType_t pairing_deadline_tick;
     uint32_t passkey;
+    bool random_passkey_mode;
     uint8_t last_auth_fail_reason;
     uint32_t auth_fail_count;
     bool adv_ready;
@@ -224,6 +227,11 @@ static void ble_set_init_diag(const char *step, esp_err_t err)
     s_last_init_error = err;
 }
 
+static uint32_t ble_generate_passkey(void)
+{
+    return (uint32_t)(esp_random() % 1000000U);
+}
+
 static void ble_start_adv_if_possible(void)
 {
     bool do_start = false;
@@ -387,7 +395,11 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
 {
     ble_set_init_diag("begin", ESP_OK);
 
-    if (passkey > 999999UL) {
+    const bool random_passkey_mode = (passkey == 0U);
+    if (random_passkey_mode) {
+        passkey = ble_generate_passkey();
+        ESP_LOGI(TAG, "BLE random passkey mode enabled, passkey=%06" PRIu32, passkey);
+    } else if (passkey > 999999UL) {
         ESP_LOGW(TAG, "BLE passkey %" PRIu32 " out of range, fallback to 123456", passkey);
         passkey = 123456UL;
     }
@@ -400,6 +412,7 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     s_ble.lock = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_ble.lock != NULL, ESP_ERR_NO_MEM, TAG, "mutex alloc failed");
     s_ble.passkey = passkey;
+    s_ble.random_passkey_mode = random_passkey_mode;
     ble_prepare_device_name(device_name, s_ble.device_name, sizeof(s_ble.device_name));
 
     ble_set_init_diag("bt_mem_release", ESP_OK);
@@ -501,12 +514,16 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
 
     ble_lock();
     s_ble.initialized = true;
-    s_ble.adv_start_requested = false;
+    s_ble.adv_start_requested = true;
     ble_refresh_bonded_locked();
     ble_unlock();
 
     ble_set_init_diag("ready", ESP_OK);
-    ESP_LOGI(TAG, "ready name=%s passkey=%06" PRIu32, s_ble.device_name, passkey);
+    ESP_LOGI(TAG,
+             "ready name=%s passkey=%06" PRIu32 " random=%d",
+             s_ble.device_name,
+             passkey,
+             random_passkey_mode);
     return ESP_OK;
 }
 
@@ -586,13 +603,25 @@ esp_err_t hid_ble_backend_start_pairing_window(uint32_t timeout_ms)
         return ESP_ERR_INVALID_STATE;
     }
 
+    bool random_passkey_mode = false;
+    uint32_t passkey = 0U;
+
     ble_lock();
+    random_passkey_mode = s_ble.random_passkey_mode;
+    if (random_passkey_mode) {
+        s_ble.passkey = ble_generate_passkey();
+    }
+    passkey = s_ble.passkey;
     s_ble.last_auth_fail_reason = 0;
     s_ble.pairing_window_active = true;
     s_ble.pairing_deadline_tick = (timeout_ms > 0) ? (xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms)) : 0;
     s_ble.adv_start_requested = true;
     ble_unlock();
 
+    if (random_passkey_mode) {
+        (void)ble_setup_security(passkey);
+        ESP_LOGI(TAG, "pairing window random passkey=%06" PRIu32, passkey);
+    }
     ble_start_adv_if_possible();
     ESP_LOGI(TAG, "pairing window started timeout_ms=%" PRIu32, timeout_ms);
     return ESP_OK;

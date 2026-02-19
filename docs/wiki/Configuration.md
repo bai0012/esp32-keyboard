@@ -178,7 +178,7 @@ Use `idf.py menuconfig` -> `MacroPad Configuration`:
 - `MACROPAD_OTA_DEFAULT_URL`
 - `MACROPAD_OTA_HTTP_TIMEOUT_MS`
 - `MACROPAD_BLE_DEVICE_NAME`
-- `MACROPAD_BLE_PASSKEY`
+- `MACROPAD_BLE_PASSKEY` (`0` enables random 6-digit passkey per pairing window)
 - `MACROPAD_BLE_TX_POWER`
 
 If SSID is empty:
