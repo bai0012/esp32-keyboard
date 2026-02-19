@@ -161,6 +161,60 @@ static bool auth_mode_valid_for_password(wifi_auth_mode_t mode, const char *pass
     return strlen(password) >= 8U;
 }
 
+static bool auth_mode_supported_for_softap(wifi_auth_mode_t mode)
+{
+    switch (mode) {
+    case WIFI_AUTH_OPEN:
+    case WIFI_AUTH_WPA_PSK:
+    case WIFI_AUTH_WPA2_PSK:
+    case WIFI_AUTH_WPA_WPA2_PSK:
+#ifdef WIFI_AUTH_WPA2_WPA3_PSK
+    case WIFI_AUTH_WPA2_WPA3_PSK:
+#endif
+#ifdef WIFI_AUTH_WPA3_PSK
+    case WIFI_AUTH_WPA3_PSK:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+static wifi_auth_mode_t fallback_softap_auth_mode_for_password(const char *password)
+{
+    if (password != NULL && strlen(password) >= 8U) {
+        return WIFI_AUTH_WPA2_PSK;
+    }
+    return WIFI_AUTH_OPEN;
+}
+
+static wifi_auth_mode_t sanitize_softap_auth_mode(wifi_auth_mode_t configured_mode, char *password, size_t password_size)
+{
+    wifi_auth_mode_t mode = configured_mode;
+    if (!auth_mode_supported_for_softap(mode)) {
+        const wifi_auth_mode_t fallback = fallback_softap_auth_mode_for_password(password);
+        ESP_LOGW(TAG,
+                 "Unsupported softAP authmode=%d, fallback to %s",
+                 (int)mode,
+                 (fallback == WIFI_AUTH_OPEN) ? "WIFI_AUTH_OPEN" : "WIFI_AUTH_WPA2_PSK");
+        mode = fallback;
+    }
+
+    if (!auth_mode_valid_for_password(mode, password)) {
+        const wifi_auth_mode_t fallback = fallback_softap_auth_mode_for_password(password);
+        ESP_LOGW(TAG,
+                 "AP auth/password mismatch for authmode=%d, fallback to %s",
+                 (int)mode,
+                 (fallback == WIFI_AUTH_OPEN) ? "WIFI_AUTH_OPEN" : "WIFI_AUTH_WPA2_PSK");
+        mode = fallback;
+    }
+
+    if (mode == WIFI_AUTH_OPEN && password != NULL && password_size > 0U) {
+        password[0] = '\0';
+    }
+    return mode;
+}
+
 static void store_ap_ip_string(void)
 {
     strlcpy(s_sta_ip, WIFI_PORTAL_DEFAULT_AP_IP, sizeof(s_sta_ip));
@@ -753,12 +807,9 @@ static esp_err_t portal_start_internal(void)
     ap_cfg.ap.ssid_len = (uint8_t)strlen((const char *)ap_cfg.ap.ssid);
     ap_cfg.ap.max_connection = (uint8_t)MACRO_WIFI_PORTAL_AP_MAX_CONNECTIONS;
     ap_cfg.ap.channel = (uint8_t)MACRO_WIFI_PORTAL_AP_CHANNEL;
-    ap_cfg.ap.authmode = (wifi_auth_mode_t)MACRO_WIFI_PORTAL_AP_AUTH_MODE;
-    if (!auth_mode_valid_for_password(ap_cfg.ap.authmode, (const char *)ap_cfg.ap.password)) {
-        ESP_LOGW(TAG, "AP auth/password mismatch, forcing OPEN");
-        ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
-        ap_cfg.ap.password[0] = '\0';
-    }
+    ap_cfg.ap.authmode = sanitize_softap_auth_mode((wifi_auth_mode_t)MACRO_WIFI_PORTAL_AP_AUTH_MODE,
+                                                   (char *)ap_cfg.ap.password,
+                                                   sizeof(ap_cfg.ap.password));
 
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), TAG, "set APSTA mode failed");
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg), TAG, "set AP config failed");

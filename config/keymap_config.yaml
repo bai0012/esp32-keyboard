@@ -205,8 +205,10 @@ wifi_portal:
   ap_ssid: 'MacroPad-Setup'
   # Hotspot password (8+ chars for WPA2; ignored for OPEN mode).
   ap_password: '12345678'
-  # Encryption/auth mode token from ESP-IDF (examples: WIFI_AUTH_OPEN, WIFI_AUTH_WPA2_PSK).
-  ap_auth_mode: WIFI_AUTH_WPA3_ENTERPRISE
+  # Encryption/auth mode token from ESP-IDF (recommended: WIFI_AUTH_WPA2_PSK).
+  # Supported for SoftAP in this firmware: WIFI_AUTH_OPEN, WIFI_AUTH_WPA2_PSK,
+  # WIFI_AUTH_WPA_WPA2_PSK, WIFI_AUTH_WPA3_PSK, WIFI_AUTH_WPA2_WPA3_PSK.
+  ap_auth_mode: WIFI_AUTH_WPA2_PSK
   # AP radio channel.
   ap_channel: 1
   # Maximum associated stations while provisioning.

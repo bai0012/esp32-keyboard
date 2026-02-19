@@ -69,6 +69,7 @@ Related `menuconfig` options:
 ## 8) Security Notes
 - For private provisioning AP, use WPA2 mode and `8+` character password.
 - `WIFI_AUTH_OPEN` is supported for convenience/testing only.
+- SoftAP does not support enterprise auth modes (for example `WIFI_AUTH_WPA3_ENTERPRISE`); if configured, firmware falls back to `WIFI_AUTH_WPA2_PSK` (or `WIFI_AUTH_OPEN` when password is too short).
 - Home Assistant URL/token remain in `menuconfig`, not YAML, to reduce source leak risk.
 
 ## 9) Validation Checklist
