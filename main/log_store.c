@@ -237,7 +237,7 @@ static int log_store_vprintf(const char *fmt, va_list args)
 
     int total = 0;
     if (s_log_store.lock != NULL) {
-        (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
+        (void)xSemaphoreTakeRecursive(s_log_store.lock, portMAX_DELAY);
     }
     for (size_t i = 0; formatted[i] != '\0'; ++i) {
         const char c = formatted[i];
@@ -261,7 +261,7 @@ static int log_store_vprintf(const char *fmt, va_list args)
         }
     }
     if (s_log_store.lock != NULL) {
-        (void)xSemaphoreGive(s_log_store.lock);
+        (void)xSemaphoreGiveRecursive(s_log_store.lock);
     }
 
     return total;
@@ -274,7 +274,7 @@ esp_err_t log_store_init(void)
     }
 
     memset(&s_log_store, 0, sizeof(s_log_store));
-    s_log_store.lock = xSemaphoreCreateMutex();
+    s_log_store.lock = xSemaphoreCreateRecursiveMutex();
     if (s_log_store.lock == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -301,7 +301,7 @@ size_t log_store_copy_recent(log_store_entry_t *out_entries, size_t out_cap, siz
     }
 
     if (s_log_store.lock != NULL) {
-        (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
+        (void)xSemaphoreTakeRecursive(s_log_store.lock, portMAX_DELAY);
     }
 
     const size_t available = s_log_store.count;
@@ -326,7 +326,7 @@ size_t log_store_copy_recent(log_store_entry_t *out_entries, size_t out_cap, siz
     }
 
     if (s_log_store.lock != NULL) {
-        (void)xSemaphoreGive(s_log_store.lock);
+        (void)xSemaphoreGiveRecursive(s_log_store.lock);
     }
     return wanted;
 }
