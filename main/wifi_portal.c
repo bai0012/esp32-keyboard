@@ -16,6 +16,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 
 #include "lwip/inet.h"
@@ -62,6 +63,7 @@ static bool s_portal_active;
 static bool s_connected;
 static bool s_waiting_for_connect;
 static bool s_stop_portal_requested;
+static bool s_reboot_requested;
 static bool s_cancel_requested;
 static bool s_timeout_requested;
 static bool s_cancelled;
@@ -73,6 +75,7 @@ static bool s_boot_saved_fallback_pending;
 static bool s_boot_saved_fallback_attempted;
 static TickType_t s_sta_attempt_start_tick;
 static TickType_t s_portal_start_tick;
+static TickType_t s_reboot_request_tick;
 static portal_state_t s_state;
 static wifi_config_t s_boot_saved_cfg;
 
@@ -915,7 +918,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         s_boot_saved_fallback_attempted = false;
         strlcpy(s_sta_ip, ip_buf, sizeof(s_sta_ip));
         if (s_portal_active) {
-            s_stop_portal_requested = true;
+            s_reboot_requested = true;
+            s_reboot_request_tick = xTaskGetTickCount();
         }
         unlock_state();
 
@@ -1036,8 +1040,10 @@ void wifi_portal_poll(void)
     bool stop_requested = false;
     bool cancel_requested = false;
     bool timeout_requested = false;
+    bool reboot_requested = false;
     bool active = false;
     TickType_t start_tick = 0;
+    TickType_t reboot_request_tick = 0;
     bool connected = false;
     bool waiting = false;
     bool boot_in_progress = false;
@@ -1051,8 +1057,10 @@ void wifi_portal_poll(void)
     stop_requested = s_stop_portal_requested;
     cancel_requested = s_cancel_requested;
     timeout_requested = s_timeout_requested;
+    reboot_requested = s_reboot_requested;
     active = s_portal_active;
     start_tick = s_portal_start_tick;
+    reboot_request_tick = s_reboot_request_tick;
     connected = s_connected;
     waiting = s_waiting_for_connect;
     boot_in_progress = s_boot_connect_in_progress;
@@ -1062,6 +1070,18 @@ void wifi_portal_poll(void)
     state = s_state;
     saved_cfg = s_boot_saved_cfg;
     unlock_state();
+
+    if (reboot_requested) {
+        const TickType_t reboot_delay = pdMS_TO_TICKS(250);
+        if ((xTaskGetTickCount() - reboot_request_tick) >= reboot_delay) {
+            lock_state();
+            s_reboot_requested = false;
+            unlock_state();
+            ESP_LOGW(TAG, "Provisioning completed; rebooting to apply clean STA runtime");
+            esp_restart();
+        }
+        return;
+    }
 
     if (active) {
         const TickType_t timeout_ticks = pdMS_TO_TICKS((uint32_t)MACRO_WIFI_PORTAL_TIMEOUT_SEC * 1000U);

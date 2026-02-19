@@ -194,6 +194,7 @@ Connection behavior:
 - if menuconfig SSID is empty, firmware tries previously stored Wi-Fi credentials first
 - if no credentials are available, or all boot attempts fail, captive portal provisioning starts (when `wifi_portal.enabled=true`)
 - credentials submitted from captive portal are stored in Wi-Fi flash storage (NVS) and reused next boot
+- after successful captive-portal provisioning, firmware performs one controlled reboot to enter clean STA runtime
 
 Security note:
 - Keep Home Assistant URL/token in `menuconfig` (sdkconfig), not in `config/keymap_config.yaml`, to avoid leaking secrets to GitHub.
