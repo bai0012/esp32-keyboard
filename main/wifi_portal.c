@@ -168,12 +168,10 @@ static bool auth_mode_supported_for_softap(wifi_auth_mode_t mode)
     case WIFI_AUTH_WPA_PSK:
     case WIFI_AUTH_WPA2_PSK:
     case WIFI_AUTH_WPA_WPA2_PSK:
-#ifdef WIFI_AUTH_WPA2_WPA3_PSK
     case WIFI_AUTH_WPA2_WPA3_PSK:
-#endif
-#ifdef WIFI_AUTH_WPA3_PSK
     case WIFI_AUTH_WPA3_PSK:
-#endif
+    case WIFI_AUTH_WPA3_EXT_PSK:
+    case WIFI_AUTH_WPA3_EXT_PSK_MIXED_MODE:
         return true;
     default:
         return false;
@@ -812,7 +810,21 @@ static esp_err_t portal_start_internal(void)
                                                    sizeof(ap_cfg.ap.password));
 
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), TAG, "set APSTA mode failed");
-    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg), TAG, "set AP config failed");
+    esp_err_t ap_cfg_err = esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
+    if (ap_cfg_err != ESP_OK) {
+        wifi_config_t fallback_cfg = ap_cfg;
+        fallback_cfg.ap.authmode = fallback_softap_auth_mode_for_password((const char *)fallback_cfg.ap.password);
+        if (fallback_cfg.ap.authmode == WIFI_AUTH_OPEN) {
+            fallback_cfg.ap.password[0] = '\0';
+        }
+        ESP_LOGW(TAG,
+                 "set AP config failed for authmode=%d (%s), retrying with %s",
+                 (int)ap_cfg.ap.authmode,
+                 esp_err_to_name(ap_cfg_err),
+                 (fallback_cfg.ap.authmode == WIFI_AUTH_OPEN) ? "WIFI_AUTH_OPEN" : "WIFI_AUTH_WPA2_PSK");
+        ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &fallback_cfg), TAG, "set AP fallback config failed");
+        ap_cfg = fallback_cfg;
+    }
 
     if (!s_wifi_started) {
         ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "wifi start failed");
