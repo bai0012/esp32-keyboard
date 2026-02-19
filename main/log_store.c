@@ -59,19 +59,6 @@ static void trim_log_message(char *line)
     }
 }
 
-static int log_store_prev_output(const char *fmt, ...)
-{
-    if (s_log_store.prev_vprintf == NULL || fmt == NULL) {
-        return 0;
-    }
-
-    va_list args;
-    va_start(args, fmt);
-    const int ret = s_log_store.prev_vprintf(fmt, args);
-    va_end(args);
-    return ret;
-}
-
 static void build_prefix(char *out, size_t out_size)
 {
     if (out == NULL || out_size == 0U) {
@@ -117,26 +104,7 @@ static int emit_output_line_locked(const char *monitor_prefix, bool has_monitor_
     }
 
     push_log_line_locked(with_prefix);
-
-    const char *color = "";
-    const char *reset = "";
-    if (has_monitor_prefix) {
-        switch (monitor_prefix[0]) {
-        case 'W':
-            color = "\x1b[0;33m";
-            reset = "\x1b[0m";
-            break;
-        case 'E':
-            color = "\x1b[0;31m";
-            reset = "\x1b[0m";
-            break;
-        case 'I':
-        default:
-            break;
-        }
-    }
-
-    return log_store_prev_output("%s%s%s\n", color, with_prefix, reset);
+    return 0;
 }
 
 static int emit_rewritten_line_locked(const char *raw_line)
@@ -218,11 +186,16 @@ static int emit_rewritten_line_locked(const char *raw_line)
 
 static int log_store_vprintf(const char *fmt, va_list args)
 {
+    int raw_ret = 0;
+    if (s_log_store.prev_vprintf != NULL && fmt != NULL) {
+        va_list out_args;
+        va_copy(out_args, args);
+        raw_ret = s_log_store.prev_vprintf(fmt, out_args);
+        va_end(out_args);
+    }
+
     if (xPortInIsrContext()) {
-        if (s_log_store.prev_vprintf != NULL && fmt != NULL) {
-            return s_log_store.prev_vprintf(fmt, args);
-        }
-        return 0;
+        return raw_ret;
     }
 
     char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
@@ -232,7 +205,7 @@ static int log_store_vprintf(const char *fmt, va_list args)
     va_end(format_args);
 
     if (formatted[0] == '\0') {
-        return 0;
+        return raw_ret;
     }
 
     int total = 0;
@@ -264,7 +237,8 @@ static int log_store_vprintf(const char *fmt, va_list args)
         (void)xSemaphoreGiveRecursive(s_log_store.lock);
     }
 
-    return total;
+    (void)total;
+    return raw_ret;
 }
 
 esp_err_t log_store_init(void)
