@@ -15,7 +15,6 @@
 #define LOG_STORE_LINE_MAX 192U
 #define LOG_STORE_FORMAT_BUF_MAX 320U
 #define LOG_STORE_ACCUM_MAX 768U
-#define LOG_STORE_MAX_EMIT_LINES 12U
 
 typedef struct {
     bool initialized;
@@ -73,43 +72,6 @@ static int log_store_prev_output(const char *fmt, ...)
     return ret;
 }
 
-static void append_fragment_collect_lines(const char *fragment,
-                                          char out_lines[LOG_STORE_MAX_EMIT_LINES][LOG_STORE_FORMAT_BUF_MAX],
-                                          size_t *out_count)
-{
-    if (fragment == NULL || out_lines == NULL || out_count == NULL) {
-        return;
-    }
-
-    for (size_t i = 0; fragment[i] != '\0'; ++i) {
-        const char c = fragment[i];
-        if (s_log_store.accum_len < (LOG_STORE_ACCUM_MAX - 1U)) {
-            s_log_store.accum[s_log_store.accum_len++] = c;
-            s_log_store.accum[s_log_store.accum_len] = '\0';
-        } else {
-            if (*out_count < LOG_STORE_MAX_EMIT_LINES) {
-                strlcpy(out_lines[*out_count], s_log_store.accum, LOG_STORE_FORMAT_BUF_MAX);
-                (*out_count)++;
-            }
-            s_log_store.accum_len = 0U;
-            s_log_store.accum[0] = '\0';
-            if (c != '\n') {
-                s_log_store.accum[s_log_store.accum_len++] = c;
-                s_log_store.accum[s_log_store.accum_len] = '\0';
-            }
-        }
-
-        if (c == '\n') {
-            if (*out_count < LOG_STORE_MAX_EMIT_LINES) {
-                strlcpy(out_lines[*out_count], s_log_store.accum, LOG_STORE_FORMAT_BUF_MAX);
-                (*out_count)++;
-            }
-            s_log_store.accum_len = 0U;
-            s_log_store.accum[0] = '\0';
-        }
-    }
-}
-
 static void build_prefix(char *out, size_t out_size)
 {
     if (out == NULL || out_size == 0U) {
@@ -128,14 +90,10 @@ static void build_prefix(char *out, size_t out_size)
     }
 }
 
-static void push_log_line(const char *line)
+static void push_log_line_locked(const char *line)
 {
     if (!s_log_store.initialized || line == NULL || line[0] == '\0') {
         return;
-    }
-
-    if (s_log_store.lock != NULL) {
-        (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
     }
     log_store_entry_t *dst = &s_log_store.entries[s_log_store.head];
     dst->id = ++s_log_store.next_id;
@@ -145,12 +103,9 @@ static void push_log_line(const char *line)
     if (s_log_store.count < LOG_STORE_MAX_ENTRIES) {
         s_log_store.count++;
     }
-    if (s_log_store.lock != NULL) {
-        (void)xSemaphoreGive(s_log_store.lock);
-    }
 }
 
-static int emit_output_line(const char *monitor_prefix, bool has_monitor_prefix, const char *payload)
+static int emit_output_line_locked(const char *monitor_prefix, bool has_monitor_prefix, const char *payload)
 {
     char time_prefix[32] = {0};
     char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 80U] = {0};
@@ -161,11 +116,30 @@ static int emit_output_line(const char *monitor_prefix, bool has_monitor_prefix,
         (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, payload);
     }
 
-    push_log_line(with_prefix);
-    return log_store_prev_output("%s\n", with_prefix);
+    push_log_line_locked(with_prefix);
+
+    const char *color = "";
+    const char *reset = "";
+    if (has_monitor_prefix) {
+        switch (monitor_prefix[0]) {
+        case 'W':
+            color = "\x1b[0;33m";
+            reset = "\x1b[0m";
+            break;
+        case 'E':
+            color = "\x1b[0;31m";
+            reset = "\x1b[0m";
+            break;
+        case 'I':
+        default:
+            break;
+        }
+    }
+
+    return log_store_prev_output("%s%s%s\n", color, with_prefix, reset);
 }
 
-static int emit_rewritten_line(const char *raw_line)
+static int emit_rewritten_line_locked(const char *raw_line)
 {
     if (raw_line == NULL) {
         return 0;
@@ -201,7 +175,7 @@ static int emit_rewritten_line(const char *raw_line)
 
     int total = 0;
     if (has_monitor_prefix && s_log_store.pending_tag_line) {
-        total += emit_output_line(s_log_store.pending_monitor_prefix, true, s_log_store.pending_tag_payload);
+        total += emit_output_line_locked(s_log_store.pending_monitor_prefix, true, s_log_store.pending_tag_payload);
         s_log_store.pending_tag_line = false;
         s_log_store.pending_monitor_prefix[0] = '\0';
         s_log_store.pending_tag_payload[0] = '\0';
@@ -214,7 +188,7 @@ static int emit_rewritten_line(const char *raw_line)
                        "%s %s",
                        s_log_store.pending_tag_payload,
                        payload);
-        total += emit_output_line(s_log_store.pending_monitor_prefix, true, merged_payload);
+        total += emit_output_line_locked(s_log_store.pending_monitor_prefix, true, merged_payload);
         s_log_store.pending_tag_line = false;
         s_log_store.pending_monitor_prefix[0] = '\0';
         s_log_store.pending_tag_payload[0] = '\0';
@@ -235,15 +209,22 @@ static int emit_rewritten_line(const char *raw_line)
             strlcpy(s_log_store.pending_tag_payload, payload, sizeof(s_log_store.pending_tag_payload));
             return total;
         }
-        total += emit_output_line(monitor_prefix, true, payload);
+        total += emit_output_line_locked(monitor_prefix, true, payload);
     } else {
-        total += emit_output_line(NULL, false, payload);
+        total += emit_output_line_locked(NULL, false, payload);
     }
     return total;
 }
 
 static int log_store_vprintf(const char *fmt, va_list args)
 {
+    if (xPortInIsrContext()) {
+        if (s_log_store.prev_vprintf != NULL && fmt != NULL) {
+            return s_log_store.prev_vprintf(fmt, args);
+        }
+        return 0;
+    }
+
     char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
     va_list format_args;
     va_copy(format_args, args);
@@ -254,20 +235,33 @@ static int log_store_vprintf(const char *fmt, va_list args)
         return 0;
     }
 
-    char lines[LOG_STORE_MAX_EMIT_LINES][LOG_STORE_FORMAT_BUF_MAX] = {0};
-    size_t line_count = 0U;
-
+    int total = 0;
     if (s_log_store.lock != NULL) {
         (void)xSemaphoreTake(s_log_store.lock, portMAX_DELAY);
     }
-    append_fragment_collect_lines(formatted, lines, &line_count);
+    for (size_t i = 0; formatted[i] != '\0'; ++i) {
+        const char c = formatted[i];
+        if (s_log_store.accum_len < (LOG_STORE_ACCUM_MAX - 1U)) {
+            s_log_store.accum[s_log_store.accum_len++] = c;
+            s_log_store.accum[s_log_store.accum_len] = '\0';
+        } else {
+            total += emit_rewritten_line_locked(s_log_store.accum);
+            s_log_store.accum_len = 0U;
+            s_log_store.accum[0] = '\0';
+            if (c != '\n') {
+                s_log_store.accum[s_log_store.accum_len++] = c;
+                s_log_store.accum[s_log_store.accum_len] = '\0';
+            }
+        }
+
+        if (c == '\n') {
+            total += emit_rewritten_line_locked(s_log_store.accum);
+            s_log_store.accum_len = 0U;
+            s_log_store.accum[0] = '\0';
+        }
+    }
     if (s_log_store.lock != NULL) {
         (void)xSemaphoreGive(s_log_store.lock);
-    }
-
-    int total = 0;
-    for (size_t i = 0; i < line_count; ++i) {
-        total += emit_rewritten_line(lines[i]);
     }
 
     return total;
