@@ -308,6 +308,11 @@ bool hid_transport_get_oled_lines(char *line0,
         return false;
     }
 
+    /* In stable BLE-connected state, fall back to normal OLED pages (clock/status). */
+    if (st.ble_connected && st.ble_last_auth_fail_reason == 0U) {
+        return false;
+    }
+
     (void)snprintf(line0, line0_size, "Keyboard: BLE");
     if (st.ble_connected) {
         (void)snprintf(line1, line1_size, "Connected");
@@ -317,6 +322,12 @@ bool hid_transport_get_oled_lines(char *line0,
         (void)snprintf(line1, line1_size, "Advertising");
     } else {
         (void)snprintf(line1, line1_size, "Idle");
+    }
+
+    if (st.ble_last_auth_fail_reason != 0U) {
+        (void)snprintf(line2, line2_size, "Auth fail 0x%02X", st.ble_last_auth_fail_reason);
+        (void)snprintf(line3, line3_size, "Forget+Pair host");
+        return true;
     }
 
     if (st.ble_pairing_window_active && !st.ble_connected) {
@@ -335,12 +346,6 @@ bool hid_transport_get_oled_lines(char *line0,
     if (st.ble_bonded && st.ble_peer_addr[0] != '\0') {
         (void)snprintf(line2, line2_size, "Bonded");
         (void)snprintf(line3, line3_size, "%s", st.ble_peer_addr);
-        return true;
-    }
-
-    if (st.ble_last_auth_fail_reason != 0U) {
-        (void)snprintf(line2, line2_size, "Auth fail 0x%02X", st.ble_last_auth_fail_reason);
-        (void)snprintf(line3, line3_size, "Forget+Pair host");
         return true;
     }
 

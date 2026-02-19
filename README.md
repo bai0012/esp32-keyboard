@@ -291,7 +291,8 @@ Security note:
   - static passkey remains configurable in `menuconfig` for stricter policies
   - single-bond policy (new bond replaces old one)
   - pairing can be started via EC11/API
-  - pairing countdown/passkey overlay is hidden while BLE link is already connected
+  - BLE OLED overlay is shown only during transitions/errors (advertising/authenticating/pairing/auth-fail)
+  - after BLE auth+connect is stable, OLED returns to normal pages (clock/status)
 
 ## OLED Display Details
 ### 1) Display content

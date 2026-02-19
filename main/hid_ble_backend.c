@@ -285,6 +285,8 @@ static void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_p
             ble_lock();
             s_ble.connected = true;
             s_ble.last_auth_fail_reason = 0;
+            s_ble.pairing_window_active = false;
+            s_ble.pairing_deadline_tick = 0;
             ble_set_bonded_locked(true);
             format_bda(param->ble_security.auth_cmpl.bd_addr, s_ble.peer_addr);
             ble_unlock();
@@ -585,6 +587,7 @@ esp_err_t hid_ble_backend_start_pairing_window(uint32_t timeout_ms)
     }
 
     ble_lock();
+    s_ble.last_auth_fail_reason = 0;
     s_ble.pairing_window_active = true;
     s_ble.pairing_deadline_tick = (timeout_ms > 0) ? (xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms)) : 0;
     s_ble.adv_start_requested = true;

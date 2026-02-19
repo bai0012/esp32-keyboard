@@ -41,12 +41,17 @@ Precedence in tap dispatcher:
   - `POST /api/v1/system/ble/clear_bond`
 
 ## 4) OLED Integration
-When BLE mode is active, OLED transport overlay can show:
+When BLE mode is active, OLED transport overlay is event-driven and can show:
 - `Keyboard: BLE`
-- `Advertising` / `Connected` / `Idle`
+- `Advertising` / `Authenticating` / `Idle`
 - `Passkey XXXXXX`
 - `Bonded <peer_addr>`
+- `Auth fail 0xNN` + `Forget+Pair host`
 - `Switching to USB/BLE` (during mode apply pending reboot)
+
+Stable behavior:
+- once BLE is fully authenticated and connected, the BLE overlay auto-hides
+- OLED returns to normal pages (clock/status) instead of staying on BLE status forever
 
 Overlay priority remains below OTA and Wi-Fi portal overlays.
 
