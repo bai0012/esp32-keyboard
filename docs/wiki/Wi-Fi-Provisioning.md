@@ -27,6 +27,7 @@ Primary source:
 - On `IP_EVENT_STA_GOT_IP`, portal auto-stops and firmware returns to STA mode.
 - On `IP_EVENT_STA_GOT_IP` from a portal-submitted credential flow, firmware now stops portal services and continues in STA mode without forcing a reboot.
 - Normal boot-time STA connect using stored/menuconfig credentials follows the same no-reboot behavior.
+- SNTP startup is deferred briefly after `IP_EVENT_STA_GOT_IP` (runs from main runtime task, not event callback) to keep Wi-Fi event handling lightweight.
 - Boot connect is non-blocking for app startup, so boot animation/input tasks are not held by connect timeout waits.
 
 ## 4) OLED Behavior During Provisioning

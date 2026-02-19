@@ -49,6 +49,7 @@
 #define LED_STRIP_COUNT 15
 #define LED_STATUS_DEBOUNCE_MS 120
 #define CDC_LOG_GATE_TIMEOUT_MS 2500
+#define SNTP_START_DELAY_MS 1200
 #define BOOT_ANIMATION_MAX_FRAMES 240
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
@@ -79,6 +80,8 @@ static debounce_state_t s_usb_mounted_db;
 static debounce_state_t s_usb_hid_ready_db;
 
 static bool s_sntp_started;
+static bool s_sntp_start_pending;
+static TickType_t s_sntp_start_due_tick;
 static volatile TickType_t s_last_user_activity_tick = 0;
 static TickType_t s_log_gate_start_tick = 0;
 static bool s_log_gate_armed = false;
@@ -88,6 +91,47 @@ static bool debounce_update(debounce_state_t *state,
                             TickType_t now,
                             TickType_t debounce_ticks);
 static void sntp_time_sync_notification_cb(struct timeval *tv);
+static void sntp_start_if_pending(TickType_t now);
+
+static const char *reset_reason_to_str(esp_reset_reason_t reason)
+{
+    switch (reason) {
+    case ESP_RST_UNKNOWN:
+        return "unknown";
+    case ESP_RST_POWERON:
+        return "poweron";
+    case ESP_RST_EXT:
+        return "ext";
+    case ESP_RST_SW:
+        return "sw";
+    case ESP_RST_PANIC:
+        return "panic";
+    case ESP_RST_INT_WDT:
+        return "int_wdt";
+    case ESP_RST_TASK_WDT:
+        return "task_wdt";
+    case ESP_RST_WDT:
+        return "wdt";
+    case ESP_RST_DEEPSLEEP:
+        return "deepsleep";
+    case ESP_RST_BROWNOUT:
+        return "brownout";
+    case ESP_RST_SDIO:
+        return "sdio";
+    case ESP_RST_USB:
+        return "usb";
+    case ESP_RST_JTAG:
+        return "jtag";
+    case ESP_RST_EFUSE:
+        return "efuse";
+    case ESP_RST_PWR_GLITCH:
+        return "pwr_glitch";
+    case ESP_RST_CPU_LOCKUP:
+        return "cpu_lockup";
+    default:
+        return "other";
+    }
+}
 
 static inline bool cdc_log_ready(void)
 {
@@ -337,13 +381,10 @@ static void sntp_ip_event_handler(void *arg,
     (void)event_data;
 
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        if (!s_sntp_started) {
-            APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
-            esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-            esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
-            esp_sntp_set_time_sync_notification_cb(sntp_time_sync_notification_cb);
-            esp_sntp_init();
-            s_sntp_started = true;
+        if (!s_sntp_started && !s_sntp_start_pending) {
+            s_sntp_start_pending = true;
+            s_sntp_start_due_tick = xTaskGetTickCount() + pdMS_TO_TICKS(SNTP_START_DELAY_MS);
+            APP_LOGI("SNTP start scheduled in %u ms", (unsigned)SNTP_START_DELAY_MS);
         }
     }
 }
@@ -358,6 +399,35 @@ static void sntp_time_sync_notification_cb(struct timeval *tv)
 static esp_err_t register_sntp_handler(void)
 {
     return esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sntp_ip_event_handler, NULL);
+}
+
+static void sntp_start_if_pending(TickType_t now)
+{
+    if (s_sntp_started || !s_sntp_start_pending || now < s_sntp_start_due_tick) {
+        return;
+    }
+
+    if (!wifi_portal_is_connected()) {
+        s_sntp_start_due_tick = now + pdMS_TO_TICKS(500);
+        return;
+    }
+
+    if (CONFIG_MACROPAD_NTP_SERVER[0] == '\0') {
+        APP_LOGI("SNTP disabled: empty server config");
+        s_sntp_started = true;
+        s_sntp_start_pending = false;
+        return;
+    }
+
+    APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
+    esp_sntp_set_time_sync_notification_cb(sntp_time_sync_notification_cb);
+    if (!esp_sntp_enabled()) {
+        esp_sntp_init();
+    }
+    s_sntp_started = true;
+    s_sntp_start_pending = false;
 }
 
 static esp_err_t init_keys(void)
@@ -529,6 +599,7 @@ static void input_task(void *arg)
 
     while (1) {
         const TickType_t now = xTaskGetTickCount();
+        sntp_start_if_pending(now);
         bool keyboard_state_changed = false;
 
         for (size_t i = 0; i < KEY_COUNT; ++i) {
@@ -888,6 +959,8 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK(log_store_init());
+    const esp_reset_reason_t reset_reason = esp_reset_reason();
+    ESP_LOGW(TAG, "Boot reset reason: %s (%d)", reset_reason_to_str(reset_reason), (int)reset_reason);
 
     s_last_user_activity_tick = xTaskGetTickCount();
 
