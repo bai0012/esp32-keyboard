@@ -130,6 +130,7 @@ For buzzer behavior details and tuning guidance:
 ## 11) Local Web Service
 - Lifecycle is automatic and non-blocking:
   - starts when STA is connected and captive portal is inactive
+  - waits a short STA-stability delay before starting HTTP server
   - stops when captive portal is active or STA disconnects
 - Read-only API exports runtime telemetry (`/api/v1/health`, `/api/v1/state`).
 - Read-only API also exports buffered runtime logs (`/api/v1/system/logs?limit=N`).

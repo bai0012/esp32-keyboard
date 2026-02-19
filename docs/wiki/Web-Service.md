@@ -20,6 +20,7 @@ The service is started/stopped automatically by `web_service_poll()`:
 - Start condition:
   - STA connected (`wifi_portal_is_connected()==true`)
   - captive portal not active (`wifi_portal_is_active()==false`)
+  - STA-ready stability delay elapsed (default 4s) before auto-start attempt
 - Stop condition:
   - STA disconnected, or
   - captive portal active

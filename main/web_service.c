@@ -35,6 +35,8 @@
 #define WEB_SERVICE_LOGS_CHUNK_BUF 512U
 #define WEB_SERVICE_ROUTE_COUNT 22U
 #define WEB_SERVICE_MIN_URI_HANDLERS (WEB_SERVICE_ROUTE_COUNT + 2U)
+#define WEB_SERVICE_START_STABLE_MS 4000U
+#define WEB_SERVICE_MIN_STACK_SIZE 8192U
 
 typedef struct {
     bool valid;
@@ -68,6 +70,8 @@ typedef struct {
     TickType_t boot_tick;
     TickType_t last_activity_tick;
     TickType_t next_start_retry_tick;
+    TickType_t network_ready_tick;
+    bool prev_should_run;
     uint8_t active_layer;
     web_service_key_event_t last_key;
     web_service_encoder_event_t last_encoder;
@@ -1114,6 +1118,13 @@ static esp_err_t web_service_start_internal(void)
     cfg.server_port = (uint16_t)MACRO_WEB_SERVICE_PORT;
     cfg.max_uri_handlers = max_uri_handlers;
     cfg.stack_size = MACRO_WEB_SERVICE_STACK_SIZE;
+    if (cfg.stack_size < WEB_SERVICE_MIN_STACK_SIZE) {
+        ESP_LOGW(TAG,
+                 "web_service.stack_size=%u too low, auto-adjusted to %u",
+                 (unsigned)cfg.stack_size,
+                 (unsigned)WEB_SERVICE_MIN_STACK_SIZE);
+        cfg.stack_size = WEB_SERVICE_MIN_STACK_SIZE;
+    }
     cfg.recv_wait_timeout = MACRO_WEB_SERVICE_RECV_TIMEOUT_SEC;
     cfg.send_wait_timeout = MACRO_WEB_SERVICE_SEND_TIMEOUT_SEC;
 
@@ -1264,6 +1275,14 @@ void web_service_poll(void)
 
     const TickType_t now = xTaskGetTickCount();
     const bool should_run = wifi_portal_is_connected() && !wifi_portal_is_active();
+
+    if (should_run && !s_ws.prev_should_run) {
+        s_ws.network_ready_tick = now;
+        s_ws.next_start_retry_tick = now + pdMS_TO_TICKS(WEB_SERVICE_START_STABLE_MS);
+        ESP_LOGI(TAG, "STA ready; delaying web-service start by %u ms", (unsigned)WEB_SERVICE_START_STABLE_MS);
+    }
+    s_ws.prev_should_run = should_run;
+
     if (should_run) {
         if (!s_ws.running && now >= s_ws.next_start_retry_tick) {
             esp_err_t err = web_service_start_internal();
@@ -1277,6 +1296,8 @@ void web_service_poll(void)
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "stop failed: %s", esp_err_to_name(err));
         }
+    } else {
+        s_ws.network_ready_tick = 0;
     }
 }
 

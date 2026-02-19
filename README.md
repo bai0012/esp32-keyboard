@@ -60,6 +60,7 @@ Hardware reference is documented in `hardware_info.md`.
   - optional control endpoints (layer/buzzer/consumer/system/ota) gated by config
   - keyboard mode and BLE pairing/bond-management endpoints
   - auto lifecycle: starts only when STA is connected and captive portal is inactive
+  - startup is deferred for a short STA-stability window to avoid connect-time races
 - OTA update workflow:
   - API-triggered firmware download (`/api/v1/system/ota`)
   - incremental OTA reception progress (bytes + percent) exposed to logs, OLED, and REST state
