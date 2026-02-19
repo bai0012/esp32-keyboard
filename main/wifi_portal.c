@@ -241,6 +241,7 @@ static void wifi_portal_dns_task(void *arg)
     if (sock < 0) {
         ESP_LOGW(TAG, "DNS socket create failed");
         s_dns_running = false;
+        s_dns_task = NULL;
         vTaskDelete(NULL);
         return;
     }
@@ -256,6 +257,7 @@ static void wifi_portal_dns_task(void *arg)
         close(sock);
         s_dns_socket = -1;
         s_dns_running = false;
+        s_dns_task = NULL;
         vTaskDelete(NULL);
         return;
     }
@@ -324,8 +326,11 @@ static void wifi_portal_dns_task(void *arg)
     }
 
     close(sock);
-    s_dns_socket = -1;
+    if (s_dns_socket == sock) {
+        s_dns_socket = -1;
+    }
     s_dns_running = false;
+    s_dns_task = NULL;
     vTaskDelete(NULL);
 }
 
@@ -481,14 +486,17 @@ static esp_err_t start_sta_connect(wifi_config_t *cfg, bool from_portal)
 
 static esp_err_t stop_dns_server(void)
 {
-    if (!s_dns_running) {
+    if (!s_dns_running && s_dns_task == NULL) {
         return ESP_OK;
     }
+
     s_dns_running = false;
-    if (s_dns_socket >= 0) {
-        close(s_dns_socket);
-        s_dns_socket = -1;
+    /* The DNS task owns/ closes its socket; wait briefly for clean shutdown. */
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(1500);
+    while (s_dns_task != NULL && xTaskGetTickCount() < deadline) {
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
+
     return ESP_OK;
 }
 
