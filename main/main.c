@@ -88,6 +88,7 @@ static bool debounce_update(debounce_state_t *state,
                             TickType_t now,
                             TickType_t debounce_ticks);
 static void sntp_time_sync_notification_cb(struct timeval *tv);
+static void halt_on_init_error(const char *step, esp_err_t err);
 
 static inline bool cdc_log_ready(void)
 {
@@ -173,6 +174,17 @@ static void send_consumer_report_with_activity(uint16_t usage)
         mark_user_activity(xTaskGetTickCount());
     }
     hid_transport_send_consumer_report(usage);
+}
+
+static void halt_on_init_error(const char *step, esp_err_t err)
+{
+    ESP_LOGE(TAG,
+             "Initialization failed at %s: %s; halting for recovery/debug",
+             step ? step : "(unknown)",
+             esp_err_to_name(err));
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
 
 static void notify_touch_swipe(uint8_t layer_index, bool left_to_right, uint16_t usage)
@@ -891,19 +903,54 @@ void app_main(void)
 
     s_last_user_activity_tick = xTaskGetTickCount();
 
-    ESP_ERROR_CHECK(init_keys());
-    ESP_ERROR_CHECK(hid_transport_init());
-    ESP_ERROR_CHECK(touch_slider_init());
-    ESP_ERROR_CHECK(init_encoder());
-    ESP_ERROR_CHECK(init_led_strip());
-    ESP_ERROR_CHECK(buzzer_init());
+    // Bring up USB transport first so CDC is available even if later init fails.
+    esp_err_t err = hid_transport_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("hid_transport_init", err);
+    }
+
+    err = init_keys();
+    if (err != ESP_OK) {
+        halt_on_init_error("init_keys", err);
+    }
+    err = touch_slider_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("touch_slider_init", err);
+    }
+    err = init_encoder();
+    if (err != ESP_OK) {
+        halt_on_init_error("init_encoder", err);
+    }
+    err = init_led_strip();
+    if (err != ESP_OK) {
+        halt_on_init_error("init_led_strip", err);
+    }
+    err = buzzer_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("buzzer_init", err);
+    }
     buzzer_play_startup();
-    ESP_ERROR_CHECK(oled_init());
-    ESP_ERROR_CHECK(ota_manager_init());
-    ESP_ERROR_CHECK(oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT));
+    err = oled_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("oled_init", err);
+    }
+    err = ota_manager_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("ota_manager_init", err);
+    }
+    err = oled_set_brightness_percent(MACRO_OLED_DEFAULT_BRIGHTNESS_PERCENT);
+    if (err != ESP_OK) {
+        halt_on_init_error("oled_set_brightness_percent", err);
+    }
     play_boot_animation();
-    ESP_ERROR_CHECK(wifi_portal_init());
-    ESP_ERROR_CHECK(web_service_init());
+    err = wifi_portal_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("wifi_portal_init", err);
+    }
+    err = web_service_init();
+    if (err != ESP_OK) {
+        halt_on_init_error("web_service_init", err);
+    }
     web_service_set_active_layer(s_active_layer);
     {
         const web_service_control_if_t control_if = {
@@ -914,10 +961,19 @@ void app_main(void)
             .start_ble_pairing = web_control_start_ble_pairing,
             .clear_ble_bond = web_control_clear_ble_bond,
         };
-        ESP_ERROR_CHECK(web_service_register_control(&control_if));
+        err = web_service_register_control(&control_if);
+        if (err != ESP_OK) {
+            halt_on_init_error("web_service_register_control", err);
+        }
     }
-    ESP_ERROR_CHECK(register_sntp_handler());
-    ESP_ERROR_CHECK(wifi_portal_start());
+    err = register_sntp_handler();
+    if (err != ESP_OK) {
+        halt_on_init_error("register_sntp_handler", err);
+    }
+    err = wifi_portal_start();
+    if (err != ESP_OK) {
+        halt_on_init_error("wifi_portal_start", err);
+    }
     {
         const esp_err_t ha_err = home_assistant_init();
         if (ha_err != ESP_OK) {
