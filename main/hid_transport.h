@@ -26,6 +26,7 @@ typedef struct {
     bool ble_enabled;
     bool ble_initialized;
     bool ble_connected;
+    bool ble_link_connected;
     bool ble_advertising;
     bool ble_bonded;
     bool ble_init_failed;
@@ -34,6 +35,8 @@ typedef struct {
     bool ble_pairing_window_active;
     uint32_t ble_pairing_remaining_ms;
     uint32_t ble_passkey;
+    uint8_t ble_last_auth_fail_reason;
+    uint32_t ble_auth_fail_count;
     char ble_peer_addr[18];
 } hid_transport_status_t;
 

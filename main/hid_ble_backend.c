@@ -34,11 +34,14 @@
 typedef struct {
     bool initialized;
     bool connected;
+    bool link_connected;
     bool advertising;
     bool bonded;
     bool pairing_window_active;
     TickType_t pairing_deadline_tick;
     uint32_t passkey;
+    uint8_t last_auth_fail_reason;
+    uint32_t auth_fail_count;
     bool adv_ready;
     uint8_t adv_cfg_done;
     uint8_t adv_cfg_required_mask;
@@ -280,13 +283,27 @@ static void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_p
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         if (param->ble_security.auth_cmpl.success) {
             ble_lock();
+            s_ble.connected = true;
+            s_ble.last_auth_fail_reason = 0;
             ble_set_bonded_locked(true);
             format_bda(param->ble_security.auth_cmpl.bd_addr, s_ble.peer_addr);
             ble_unlock();
             ble_remove_all_other_bonds(param->ble_security.auth_cmpl.bd_addr);
             ESP_LOGI(TAG, "BLE bond/auth success with %s", s_ble.peer_addr);
         } else {
+            ble_lock();
+            s_ble.connected = false;
+            s_ble.last_auth_fail_reason = param->ble_security.auth_cmpl.fail_reason;
+            s_ble.auth_fail_count++;
+            ble_set_bonded_locked(false);
+            /* Keep pairing window open after auth failure so user can re-pair quickly. */
+            s_ble.pairing_window_active = true;
+            s_ble.pairing_deadline_tick =
+                xTaskGetTickCount() + pdMS_TO_TICKS((uint32_t)MACRO_BLUETOOTH_PAIRING_WINDOW_SEC * 1000U);
+            s_ble.adv_start_requested = true;
+            ble_unlock();
             ESP_LOGW(TAG, "BLE auth failed reason=0x%X", param->ble_security.auth_cmpl.fail_reason);
+            ESP_LOGW(TAG, "If host was paired before erase, remove old ESP32 bond on host and pair again");
         }
         break;
     default:
@@ -307,16 +324,16 @@ static void ble_hidd_event_callback(void *handler_args, esp_event_base_t base, i
         break;
     case ESP_HIDD_CONNECT_EVENT:
         ble_lock();
-        s_ble.connected = true;
+        s_ble.link_connected = true;
+        s_ble.connected = false;
         s_ble.advertising = false;
-        /* Connected sessions should not keep showing pairing countdown overlay. */
-        s_ble.pairing_window_active = false;
-        s_ble.pairing_deadline_tick = 0;
         ble_unlock();
+        ESP_LOGI(TAG, "BLE link connected, waiting for authentication");
         break;
     case ESP_HIDD_DISCONNECT_EVENT:
         ble_lock();
         s_ble.connected = false;
+        s_ble.link_connected = false;
         s_ble.advertising = false;
         ble_unlock();
         ble_start_adv_if_possible();
@@ -625,10 +642,13 @@ void hid_ble_backend_get_status(hid_ble_backend_status_t *out_status)
     ble_lock();
     out_status->initialized = s_ble.initialized;
     out_status->connected = s_ble.connected;
+    out_status->link_connected = s_ble.link_connected;
     out_status->advertising = s_ble.advertising;
     out_status->bonded = s_ble.bonded;
     out_status->pairing_window_active = s_ble.pairing_window_active;
     out_status->passkey = s_ble.passkey;
+    out_status->last_auth_fail_reason = s_ble.last_auth_fail_reason;
+    out_status->auth_fail_count = s_ble.auth_fail_count;
     strlcpy(out_status->peer_addr, s_ble.peer_addr, sizeof(out_status->peer_addr));
 
     if (s_ble.pairing_window_active && s_ble.pairing_deadline_tick != 0) {

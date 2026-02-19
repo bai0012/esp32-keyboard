@@ -251,8 +251,11 @@ bool hid_transport_get_status(hid_transport_status_t *out_status)
         hid_ble_backend_get_status(&ble);
         out_status->ble_initialized = ble.initialized;
         out_status->ble_connected = ble.connected;
+        out_status->ble_link_connected = ble.link_connected;
         out_status->ble_advertising = ble.advertising;
         out_status->ble_bonded = ble.bonded;
+        out_status->ble_last_auth_fail_reason = ble.last_auth_fail_reason;
+        out_status->ble_auth_fail_count = ble.auth_fail_count;
         out_status->ble_init_failed = s_ctx.ble_init_failed;
         out_status->ble_init_error = s_ctx.ble_init_error;
         strlcpy(out_status->ble_init_step, hid_ble_backend_last_init_step(), sizeof(out_status->ble_init_step));
@@ -308,6 +311,8 @@ bool hid_transport_get_oled_lines(char *line0,
     (void)snprintf(line0, line0_size, "Keyboard: BLE");
     if (st.ble_connected) {
         (void)snprintf(line1, line1_size, "Connected");
+    } else if (st.ble_link_connected) {
+        (void)snprintf(line1, line1_size, "Authenticating");
     } else if (st.ble_advertising) {
         (void)snprintf(line1, line1_size, "Advertising");
     } else {
@@ -330,6 +335,12 @@ bool hid_transport_get_oled_lines(char *line0,
     if (st.ble_bonded && st.ble_peer_addr[0] != '\0') {
         (void)snprintf(line2, line2_size, "Bonded");
         (void)snprintf(line3, line3_size, "%s", st.ble_peer_addr);
+        return true;
+    }
+
+    if (st.ble_last_auth_fail_reason != 0U) {
+        (void)snprintf(line2, line2_size, "Auth fail 0x%02X", st.ble_last_auth_fail_reason);
+        (void)snprintf(line3, line3_size, "Forget+Pair host");
         return true;
     }
 

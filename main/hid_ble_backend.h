@@ -11,11 +11,14 @@
 typedef struct {
     bool initialized;
     bool connected;
+    bool link_connected;
     bool advertising;
     bool bonded;
     bool pairing_window_active;
     uint32_t pairing_remaining_ms;
     uint32_t passkey;
+    uint8_t last_auth_fail_reason;
+    uint32_t auth_fail_count;
     char peer_addr[18];
 } hid_ble_backend_status_t;
 
