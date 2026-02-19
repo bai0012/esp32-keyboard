@@ -50,6 +50,8 @@
 #define LED_STATUS_DEBOUNCE_MS 120
 #define CDC_LOG_GATE_TIMEOUT_MS 2500
 #define SNTP_START_DELAY_MS 1200
+#define SNTP_START_RETRY_MS 1000
+#define SNTP_TASK_STACK_SIZE 4096
 #define INPUT_TASK_STACK_SIZE 8192
 #define DISPLAY_TASK_STACK_SIZE 6144
 #define BOOT_ANIMATION_MAX_FRAMES 240
@@ -84,6 +86,7 @@ static debounce_state_t s_usb_hid_ready_db;
 static bool s_sntp_started;
 static bool s_sntp_start_pending;
 static TickType_t s_sntp_start_due_tick;
+static bool s_sntp_start_in_progress;
 static bool s_reset_reason_late_logged;
 static esp_reset_reason_t s_boot_reset_reason = ESP_RST_UNKNOWN;
 static volatile TickType_t s_last_user_activity_tick = 0;
@@ -96,6 +99,7 @@ static bool debounce_update(debounce_state_t *state,
                             TickType_t debounce_ticks);
 static void sntp_time_sync_notification_cb(struct timeval *tv);
 static void sntp_start_if_pending(TickType_t now);
+static void sntp_start_task(void *arg);
 
 static const char *reset_reason_to_str(esp_reset_reason_t reason)
 {
@@ -385,10 +389,10 @@ static void sntp_ip_event_handler(void *arg,
     (void)event_data;
 
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        if (!s_sntp_started && !s_sntp_start_pending) {
+        if (!s_sntp_started && !s_sntp_start_pending && !s_sntp_start_in_progress) {
             s_sntp_start_pending = true;
             s_sntp_start_due_tick = xTaskGetTickCount() + pdMS_TO_TICKS(SNTP_START_DELAY_MS);
-            APP_LOGI("SNTP start scheduled in %u ms", (unsigned)SNTP_START_DELAY_MS);
+            ESP_LOGI(TAG, "SNTP start scheduled in %u ms", (unsigned)SNTP_START_DELAY_MS);
         }
     }
 }
@@ -397,7 +401,7 @@ static void sntp_time_sync_notification_cb(struct timeval *tv)
 {
     (void)tv;
     log_store_mark_time_synced();
-    APP_LOGI("SNTP time synchronized");
+    ESP_LOGI(TAG, "SNTP time synchronized");
 }
 
 static esp_err_t register_sntp_handler(void)
@@ -405,9 +409,26 @@ static esp_err_t register_sntp_handler(void)
     return esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sntp_ip_event_handler, NULL);
 }
 
+static void sntp_start_task(void *arg)
+{
+    (void)arg;
+
+    ESP_LOGI(TAG, "Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
+    esp_sntp_set_time_sync_notification_cb(sntp_time_sync_notification_cb);
+    if (!esp_sntp_enabled()) {
+        esp_sntp_init();
+    }
+    s_sntp_started = true;
+    s_sntp_start_pending = false;
+    s_sntp_start_in_progress = false;
+    vTaskDelete(NULL);
+}
+
 static void sntp_start_if_pending(TickType_t now)
 {
-    if (s_sntp_started || !s_sntp_start_pending || now < s_sntp_start_due_tick) {
+    if (s_sntp_started || !s_sntp_start_pending || s_sntp_start_in_progress || now < s_sntp_start_due_tick) {
         return;
     }
 
@@ -417,21 +438,24 @@ static void sntp_start_if_pending(TickType_t now)
     }
 
     if (CONFIG_MACROPAD_NTP_SERVER[0] == '\0') {
-        APP_LOGI("SNTP disabled: empty server config");
+        ESP_LOGI(TAG, "SNTP disabled: empty server config");
         s_sntp_started = true;
         s_sntp_start_pending = false;
         return;
     }
 
-    APP_LOGI("Starting SNTP with server: %s", CONFIG_MACROPAD_NTP_SERVER);
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, (char *)CONFIG_MACROPAD_NTP_SERVER);
-    esp_sntp_set_time_sync_notification_cb(sntp_time_sync_notification_cb);
-    if (!esp_sntp_enabled()) {
-        esp_sntp_init();
+    s_sntp_start_in_progress = true;
+    BaseType_t created = xTaskCreate(sntp_start_task,
+                                     "sntp_start_task",
+                                     SNTP_TASK_STACK_SIZE,
+                                     NULL,
+                                     4,
+                                     NULL);
+    if (created != pdPASS) {
+        s_sntp_start_in_progress = false;
+        s_sntp_start_due_tick = now + pdMS_TO_TICKS(SNTP_START_RETRY_MS);
+        ESP_LOGE(TAG, "SNTP start task create failed; retry in %u ms", (unsigned)SNTP_START_RETRY_MS);
     }
-    s_sntp_started = true;
-    s_sntp_start_pending = false;
 }
 
 static esp_err_t init_keys(void)

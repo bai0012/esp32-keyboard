@@ -13,7 +13,7 @@
 
 #define LOG_STORE_MAX_ENTRIES 240U
 #define LOG_STORE_LINE_MAX 192U
-#define LOG_STORE_FORMAT_BUF_MAX 320U
+#define LOG_STORE_FORMAT_BUF_MAX 160U
 #define LOG_STORE_ACCUM_MAX 768U
 
 typedef struct {
@@ -65,16 +65,8 @@ static void build_prefix(char *out, size_t out_size)
         return;
     }
 
-    if (s_log_store.time_synced || is_wall_time_valid()) {
-        s_log_store.time_synced = true;
-        time_t now = 0;
-        time(&now);
-        struct tm timeinfo = {0};
-        localtime_r(&now, &timeinfo);
-        (void)strftime(out, out_size, "%Y-%m-%d %H:%M:%S", &timeinfo);
-    } else {
-        (void)snprintf(out, out_size, "+%lu ms", (unsigned long)esp_log_timestamp());
-    }
+    /* Keep the log hook lightweight and deterministic to avoid callback-time crashes. */
+    (void)snprintf(out, out_size, "+%lu ms", (unsigned long)esp_log_timestamp());
 }
 
 static void push_log_line_locked(const char *line)
@@ -92,96 +84,19 @@ static void push_log_line_locked(const char *line)
     }
 }
 
-static int emit_output_line_locked(const char *monitor_prefix, bool has_monitor_prefix, const char *payload)
+static void emit_accum_line_locked(void)
 {
-    char time_prefix[32] = {0};
-    char with_prefix[LOG_STORE_FORMAT_BUF_MAX + 80U] = {0};
-    build_prefix(time_prefix, sizeof(time_prefix));
-    if (has_monitor_prefix) {
-        (void)snprintf(with_prefix, sizeof(with_prefix), "%s [%s] %s", monitor_prefix, time_prefix, payload);
-    } else {
-        (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, payload);
+    trim_log_message(s_log_store.accum);
+    if (s_log_store.accum[0] == '\0') {
+        return;
     }
+
+    char time_prefix[24] = {0};
+    char with_prefix[LOG_STORE_LINE_MAX] = {0};
+    build_prefix(time_prefix, sizeof(time_prefix));
+    (void)snprintf(with_prefix, sizeof(with_prefix), "[%s] %s", time_prefix, s_log_store.accum);
 
     push_log_line_locked(with_prefix);
-    return 0;
-}
-
-static int emit_rewritten_line_locked(const char *raw_line)
-{
-    if (raw_line == NULL) {
-        return 0;
-    }
-
-    char formatted[LOG_STORE_FORMAT_BUF_MAX] = {0};
-    strlcpy(formatted, raw_line, sizeof(formatted));
-    trim_log_message(formatted);
-    if (formatted[0] == '\0') {
-        return 0;
-    }
-
-    bool has_monitor_prefix = false;
-    char monitor_prefix[32] = {0};
-    const char *payload = formatted;
-
-    if (formatted[0] != '\0' && formatted[1] == ' ' && formatted[2] == '(') {
-        const char *end_ts = strstr(formatted, ") ");
-        if (end_ts != NULL) {
-            const size_t prefix_len = (size_t)(end_ts - formatted + 2U);
-            if (prefix_len < sizeof(monitor_prefix)) {
-                memcpy(monitor_prefix, formatted, prefix_len);
-                monitor_prefix[prefix_len] = '\0';
-                has_monitor_prefix = true;
-                if (end_ts[2] != '\0') {
-                    payload = end_ts + 2;
-                } else {
-                    payload = "";
-                }
-            }
-        }
-    }
-
-    int total = 0;
-    if (has_monitor_prefix && s_log_store.pending_tag_line) {
-        total += emit_output_line_locked(s_log_store.pending_monitor_prefix, true, s_log_store.pending_tag_payload);
-        s_log_store.pending_tag_line = false;
-        s_log_store.pending_monitor_prefix[0] = '\0';
-        s_log_store.pending_tag_payload[0] = '\0';
-    }
-
-    if (!has_monitor_prefix && s_log_store.pending_tag_line) {
-        char merged_payload[LOG_STORE_FORMAT_BUF_MAX] = {0};
-        (void)snprintf(merged_payload,
-                       sizeof(merged_payload),
-                       "%s %s",
-                       s_log_store.pending_tag_payload,
-                       payload);
-        total += emit_output_line_locked(s_log_store.pending_monitor_prefix, true, merged_payload);
-        s_log_store.pending_tag_line = false;
-        s_log_store.pending_monitor_prefix[0] = '\0';
-        s_log_store.pending_tag_payload[0] = '\0';
-        return total;
-    }
-
-    if (has_monitor_prefix) {
-        const size_t payload_len = strlen(payload);
-        const bool tag_only_line =
-            payload_len > 0U &&
-            payload[payload_len - 1U] == ':' &&
-            strchr(payload, ' ') == NULL;
-        if (tag_only_line) {
-            s_log_store.pending_tag_line = true;
-            strlcpy(s_log_store.pending_monitor_prefix,
-                    monitor_prefix,
-                    sizeof(s_log_store.pending_monitor_prefix));
-            strlcpy(s_log_store.pending_tag_payload, payload, sizeof(s_log_store.pending_tag_payload));
-            return total;
-        }
-        total += emit_output_line_locked(monitor_prefix, true, payload);
-    } else {
-        total += emit_output_line_locked(NULL, false, payload);
-    }
-    return total;
 }
 
 static int log_store_vprintf(const char *fmt, va_list args)
@@ -208,7 +123,6 @@ static int log_store_vprintf(const char *fmt, va_list args)
         return raw_ret;
     }
 
-    int total = 0;
     if (s_log_store.lock != NULL) {
         (void)xSemaphoreTakeRecursive(s_log_store.lock, portMAX_DELAY);
     }
@@ -218,7 +132,7 @@ static int log_store_vprintf(const char *fmt, va_list args)
             s_log_store.accum[s_log_store.accum_len++] = c;
             s_log_store.accum[s_log_store.accum_len] = '\0';
         } else {
-            total += emit_rewritten_line_locked(s_log_store.accum);
+            emit_accum_line_locked();
             s_log_store.accum_len = 0U;
             s_log_store.accum[0] = '\0';
             if (c != '\n') {
@@ -228,7 +142,7 @@ static int log_store_vprintf(const char *fmt, va_list args)
         }
 
         if (c == '\n') {
-            total += emit_rewritten_line_locked(s_log_store.accum);
+            emit_accum_line_locked();
             s_log_store.accum_len = 0U;
             s_log_store.accum[0] = '\0';
         }
@@ -237,7 +151,6 @@ static int log_store_vprintf(const char *fmt, va_list args)
         (void)xSemaphoreGiveRecursive(s_log_store.lock);
     }
 
-    (void)total;
     return raw_ret;
 }
 
