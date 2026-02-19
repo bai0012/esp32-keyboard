@@ -33,9 +33,11 @@
 
 ## 6) Reboot Loop Around Wi-Fi Connect
 - Check `Boot reset reason: <reason> (<id>)` near startup logs.
+- If COM16 misses early boot logs, check `Boot reset reason (late): ...` in runtime logs after CDC is ready.
 - If reset reason is `sw`, inspect runtime paths that can call `esp_restart` (mode switch, OTA, explicit reboot hooks).
 - If reset reason is `panic`/`wdt`, enable higher log level and capture earliest crash output.
 - If reset reason is `brownout`/`pwr_glitch`, check USB cable/port power stability.
+- Check `task stack watermark input_task=...` in heartbeat logs; very low remaining stack indicates likely stack overflow risk.
 
 ## 7) Captive Portal Not Appearing
 - Confirm `wifi_portal.enabled: true` in `config/keymap_config.yaml`.

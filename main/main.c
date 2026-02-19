@@ -50,6 +50,8 @@
 #define LED_STATUS_DEBOUNCE_MS 120
 #define CDC_LOG_GATE_TIMEOUT_MS 2500
 #define SNTP_START_DELAY_MS 1200
+#define INPUT_TASK_STACK_SIZE 8192
+#define DISPLAY_TASK_STACK_SIZE 6144
 #define BOOT_ANIMATION_MAX_FRAMES 240
 #define BOOT_ANIMATION_MAX_TOTAL_MS 8000
 #define BOOT_ANIMATION_MIN_FRAME_MS 20
@@ -82,6 +84,8 @@ static debounce_state_t s_usb_hid_ready_db;
 static bool s_sntp_started;
 static bool s_sntp_start_pending;
 static TickType_t s_sntp_start_due_tick;
+static bool s_reset_reason_late_logged;
+static esp_reset_reason_t s_boot_reset_reason = ESP_RST_UNKNOWN;
 static volatile TickType_t s_last_user_activity_tick = 0;
 static TickType_t s_log_gate_start_tick = 0;
 static bool s_log_gate_armed = false;
@@ -599,6 +603,12 @@ static void input_task(void *arg)
 
     while (1) {
         const TickType_t now = xTaskGetTickCount();
+        if (!s_reset_reason_late_logged && cdc_log_ready()) {
+            APP_LOGI("Boot reset reason (late): %s (%d)",
+                     reset_reason_to_str(s_boot_reset_reason),
+                     (int)s_boot_reset_reason);
+            s_reset_reason_late_logged = true;
+        }
         sntp_start_if_pending(now);
         bool keyboard_state_changed = false;
 
@@ -785,6 +795,7 @@ static void input_task(void *arg)
             last_heartbeat = now;
             hid_transport_status_t hid_status = {0};
             (void)hid_transport_get_status(&hid_status);
+            const UBaseType_t stack_hw = uxTaskGetStackHighWaterMark(NULL);
             APP_LOGI("alive mode=%s mounted=%d link_ready=%d ble_init=%d ble_conn=%d ble_adv=%d ble_bond=%d ble_err=%s ble_step=%s k1=%d enc_btn=%d",
                      hid_status.mode == HID_MODE_USB ? "usb" : "ble",
                      hid_status.usb_mounted,
@@ -797,6 +808,9 @@ static void input_task(void *arg)
                      hid_status.ble_init_step[0] ? hid_status.ble_init_step : "-",
                      gpio_get_level(scan_key_cfg(0)->gpio),
                      gpio_get_level(EC11_GPIO_BUTTON));
+            APP_LOGI("task stack watermark input_task=%u words (~%u bytes free)",
+                     (unsigned)stack_hw,
+                     (unsigned)(stack_hw * sizeof(StackType_t)));
         }
 
         vTaskDelay(pdMS_TO_TICKS(SCAN_INTERVAL_MS));
@@ -959,8 +973,12 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK(log_store_init());
-    const esp_reset_reason_t reset_reason = esp_reset_reason();
-    ESP_LOGW(TAG, "Boot reset reason: %s (%d)", reset_reason_to_str(reset_reason), (int)reset_reason);
+    s_boot_reset_reason = esp_reset_reason();
+    ESP_LOGW(TAG,
+             "Boot reset reason: %s (%d)",
+             reset_reason_to_str(s_boot_reset_reason),
+             (int)s_boot_reset_reason);
+    s_reset_reason_late_logged = false;
 
     s_last_user_activity_tick = xTaskGetTickCount();
 
@@ -1053,8 +1071,8 @@ void app_main(void)
         }
     }
 
-    xTaskCreate(display_task, "display_task", 4096, NULL, 4, NULL);
-    xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL);
+    xTaskCreate(display_task, "display_task", DISPLAY_TASK_STACK_SIZE, NULL, 4, NULL);
+    xTaskCreate(input_task, "input_task", INPUT_TASK_STACK_SIZE, NULL, 5, NULL);
 
     APP_LOGI("Macro keyboard started");
     APP_LOGI("Edit mapping in config/keymap_config.yaml");
