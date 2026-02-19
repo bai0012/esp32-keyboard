@@ -515,8 +515,11 @@ esp_err_t hid_ble_backend_init(const char *device_name, uint32_t passkey)
     ble_lock();
     s_ble.initialized = true;
     s_ble.adv_start_requested = true;
+    s_ble.adv_ready = ((s_ble.adv_cfg_done & s_ble.adv_cfg_required_mask) == s_ble.adv_cfg_required_mask);
     ble_refresh_bonded_locked();
     ble_unlock();
+    /* Handle callback ordering race: adv data callbacks may finish before init flips initialized/start flags. */
+    ble_start_adv_if_possible();
 
     ble_set_init_diag("ready", ESP_OK);
     ESP_LOGI(TAG,
